@@ -444,9 +444,13 @@
             <p class="hint">Se informar, o custo da peça passa a ser a média ponderada entre o estoque atual e esta compra.</p>`
           : ''
       }
-      <label>Observação (opcional)
-        <input name="note" type="text" maxlength="120" placeholder="${isIn ? 'Ex.: compra do fornecedor X' : 'Ex.: perda, ajuste, venda direta'}" />
-      </label>`;
+      ${
+        App.isManager()
+          ? `<label>Observação (opcional)
+              <input name="note" type="text" maxlength="120" placeholder="${isIn ? 'Ex.: compra do fornecedor X' : 'Ex.: perda, ajuste, venda direta'}" />
+            </label>`
+          : ''
+      }`;
     openModal(
       isIn ? 'Entrada de peças' : 'Saída de peças',
       body,
@@ -795,7 +799,8 @@
   //  Histórico
   // =====================================================================
   function viewHistorico() {
-    const label = { entrada: 'Entrada', saida: 'Saída', producao: 'Montagem' };
+    const mgr = App.isManager();
+    const label = { entrada: 'Entrada', saida: mgr ? 'Saída' : 'Saiu p/ entrega', producao: 'Montagem' };
     const pill = { entrada: 'ok', saida: 'warn', producao: 'bad' };
     const rows = App.state.movements
       .slice(0, 300)
@@ -806,7 +811,7 @@
           <td><span class="pill ${pill[m.type] || 'ok'}">${label[m.type] || esc(m.type)}</span></td>
           <td>${esc(m.partName)}</td>
           <td class="right num">${sign}${int(m.qty)}</td>
-          <td>${esc(m.note)}</td>
+          ${mgr ? `<td>${esc(m.note)}</td>` : ''}
           <td>${esc(m.who || roleLabel(m.role))}</td>
         </tr>`;
       })
@@ -819,8 +824,8 @@
         </div>
       </section>
       <div class="table-wrap"><table>
-        <thead><tr><th>Quando</th><th>Tipo</th><th>Peça</th><th class="right">Qtd.</th><th>Observação</th><th>Quem</th></tr></thead>
-        <tbody>${rows || `<tr><td colspan="6" class="empty">Ainda não há movimentações.</td></tr>`}</tbody>
+        <thead><tr><th>Quando</th><th>Tipo</th><th>Peça</th> <th class="right">Qtd.</th>${mgr ? '<th>Observação</th>' : ''}<th>Quem</th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="${mgr ? 6 : 5}" class="empty">Ainda não há movimentações.</td></tr>`}</tbody>
       </table></div>`;
   }
 

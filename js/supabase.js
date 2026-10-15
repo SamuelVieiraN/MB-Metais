@@ -220,7 +220,7 @@
           getAll('parts', 'select=id,code,name,stock,min,photo_url&order=name.asc'),
           getAll('products', 'select=id,code,name,category,photo_url&order=name.asc'),
           getAll('bom', 'select=product_id,part_id,qty'),
-          api('/rest/v1/movements?select=id,created_at,part_id,part_name,type,qty,note,user_name,user_role&order=created_at.desc&limit=500'),
+          api('/rest/v1/rpc/list_movements', { method: 'POST', body: { p_limit: 500 } }),
           manager ? getAll('part_costs', 'select=part_id,cost') : [],
           manager ? getAll('product_prices', 'select=product_id,price') : [],
         ]);

@@ -153,7 +153,7 @@
         const res = L.applyMovement(db.parts, partId, type, qty, cost);
         if (!res.ok) throw new Error(res.error);
         db.parts = res.parts;
-        logMove(db, part, type, Math.floor(Number(qty)), note);
+        logMove(db, part, type, Math.floor(Number(qty)), me().role === 'gerente' ? note : '');
         writeDb(db);
       },
 

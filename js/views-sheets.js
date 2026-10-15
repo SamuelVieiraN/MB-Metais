@@ -279,5 +279,5 @@
     }
   });
 
-  App.registerTab({ id: 'planilhas', label: 'Planilhas', order: 50, view });
+  App.registerTab({ id: 'planilhas', label: 'Planilhas', order: 50, managerOnly: true, view });
 })(typeof self !== 'undefined' ? self : this);
