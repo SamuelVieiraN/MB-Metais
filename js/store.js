@@ -19,6 +19,7 @@
         if (d && Array.isArray(d.parts) && Array.isArray(d.products)) {
           d.movements = Array.isArray(d.movements) ? d.movements : [];
           d.counts = Array.isArray(d.counts) ? d.counts : [];
+          d.receipts = Array.isArray(d.receipts) ? d.receipts : [];
           return d;
         }
       }
@@ -27,6 +28,7 @@
     }
     const fresh = clone(root.SAMPLE_DATA);
     fresh.counts = [];
+    fresh.receipts = [];
     return fresh;
   }
 
@@ -36,6 +38,27 @@
     } catch (e) {
       throw new Error('Sem espaço no navegador para guardar isso (provavelmente as fotos). Remova algumas fotos ou use o banco de dados online.');
     }
+  }
+
+
+  /** Valida e normaliza os itens de um recebimento (mesmas regras do banco). */
+  function receiptItems(db, items) {
+    if (!Array.isArray(items) || !items.length) throw new Error('Inclua pelo menos uma peça no recebimento.');
+    const seen = new Set();
+    let any = false;
+    const out = items.map((it) => {
+      const part = db.parts.find((p) => p.id === it.partId);
+      if (!part) throw new Error('Uma das peças do recebimento não existe mais.');
+      if (seen.has(part.id)) throw new Error(`A peça "${part.name}" aparece duas vezes. Some as quantidades em uma linha só.`);
+      seen.add(part.id);
+      const received = Math.floor(Number(it.received));
+      const expected = it.expected === null || it.expected === undefined || it.expected === '' ? null : Math.floor(Number(it.expected));
+      if (!(received >= 0) || (expected !== null && !(expected >= 0))) throw new Error('As quantidades não podem ser negativas.');
+      if (received > 0) any = true;
+      return { partId: part.id, name: part.name, code: part.code || '', expected, received };
+    });
+    if (!any) throw new Error('Informe a quantidade recebida de pelo menos uma peça.');
+    return out;
   }
 
   function createLocalStore(getUser) {
@@ -70,7 +93,15 @@
       kind: 'local',
 
       async load() {
-        return clone(readDb());
+        const db = clone(readDb());
+        if (me().role !== 'gerente') {
+          // igual ao banco online: funcionário não recebe fornecedor nem os motivos do registro
+          db.receipts.forEach((r) => {
+            r.supplier = '';
+            r.log = r.log.map((e) => ({ ...e, detail: '' }));
+          });
+        }
+        return db;
       },
 
       async saveParts(items, note) {
@@ -261,10 +292,115 @@
         writeDb(db);
       },
 
+      // ---- Recebimento de mercadoria por lote ----
+      /** items: [{ partId, expected (opcional), received }] */
+      async createReceipt({ ref, items, supplier }) {
+        const db = readDb();
+        const out = receiptItems(db, items);
+        const u = me();
+        db.receipts.unshift({
+          id: uuid(),
+          num: (db.receipts.reduce((m, r) => Math.max(m, r.num || 0), 0) || 0) + 1,
+          date: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          who: u.name || '',
+          ref: String(ref || '').trim(),
+          supplier: u.role === 'gerente' ? String(supplier || '').trim() : '',
+          status: 'pendente',
+          items: out,
+          log: [{ at: new Date().toISOString(), by: u.name || '', action: 'criado', detail: '' }],
+        });
+        writeDb(db);
+      },
+
+      async approveReceipt(id) {
+        needManager();
+        const db = readDb();
+        const r = db.receipts.find((x) => x.id === id);
+        if (!r) throw new Error('Recebimento não encontrado.');
+        if (r.status !== 'pendente') throw new Error('Este recebimento não está aguardando autorização.');
+        for (const it of r.items) {
+          if (it.received <= 0) continue;
+          const part = db.parts.find((p) => p.id === it.partId);
+          if (!part) throw new Error(`A peça "${it.name}" não existe mais.`);
+          part.stock += it.received;
+          logMove(db, part, 'entrada', it.received, `Recebimento #${r.num}`, { origin: 'recebimento' });
+        }
+        r.status = 'concluido';
+        r.updatedAt = new Date().toISOString();
+        r.log.push({ at: r.updatedAt, by: me().name || '', action: 'autorizado', detail: '' });
+        writeDb(db);
+      },
+
+      async editReceipt(id, { ref, items, supplier, reason }) {
+        needManager();
+        const db = readDb();
+        const r = db.receipts.find((x) => x.id === id);
+        if (!r) throw new Error('Recebimento não encontrado.');
+        if (r.status === 'excluido') throw new Error('Recebimentos excluídos não podem ser editados.');
+        const out = receiptItems(db, items);
+        let status = r.status;
+        if (r.status === 'concluido' || r.status === 'concluido_editado') {
+          if (!String(reason || '').trim()) throw new Error('Informe o motivo da edição.');
+          const diff = {};
+          out.forEach((i) => (diff[i.partId] = (diff[i.partId] || 0) + i.received));
+          r.items.forEach((i) => (diff[i.partId] = (diff[i.partId] || 0) - i.received));
+          const names = {};
+          [...out, ...r.items].forEach((i) => (names[i.partId] = i.name));
+          const ids = Object.keys(diff).filter((k) => diff[k] !== 0);
+          for (const pid of ids) {
+            const part = db.parts.find((p) => p.id === pid);
+            if (!part) throw new Error(`A peça "${names[pid]}" não existe mais.`);
+            if (part.stock + diff[pid] < 0) throw new Error(`Não dá para reduzir: o estoque de "${names[pid]}" é ${part.stock} e a redução é de ${-diff[pid]}.`);
+          }
+          for (const pid of ids) {
+            const part = db.parts.find((p) => p.id === pid);
+            part.stock += diff[pid];
+            logMove(db, part, diff[pid] > 0 ? 'entrada' : 'saida', Math.abs(diff[pid]), `Edição do recebimento #${r.num}`, { origin: 'recebimento' });
+          }
+          status = 'concluido_editado';
+        }
+        r.ref = String(ref || '').trim();
+        r.supplier = String(supplier || '').trim();
+        r.items = out;
+        r.status = status;
+        r.updatedAt = new Date().toISOString();
+        r.log.push({ at: r.updatedAt, by: me().name || '', action: 'editado', detail: String(reason || '').trim() });
+        writeDb(db);
+      },
+
+      async deleteReceipt(id, reason) {
+        needManager();
+        if (!String(reason || '').trim()) throw new Error('Informe o motivo da exclusão.');
+        const db = readDb();
+        const r = db.receipts.find((x) => x.id === id);
+        if (!r) throw new Error('Recebimento não encontrado.');
+        if (r.status === 'excluido') throw new Error('Este recebimento já foi excluído.');
+        if (r.status === 'concluido' || r.status === 'concluido_editado') {
+          for (const it of r.items) {
+            const part = db.parts.find((p) => p.id === it.partId);
+            if (part && it.received > 0 && part.stock < it.received) {
+              throw new Error(`Não dá para excluir: o estoque de "${it.name}" é ${part.stock} e o recebimento tinha ${it.received}.`);
+            }
+          }
+          for (const it of r.items) {
+            const part = db.parts.find((p) => p.id === it.partId);
+            if (!part || it.received <= 0) continue;
+            part.stock -= it.received;
+            logMove(db, part, 'saida', it.received, `Exclusão do recebimento #${r.num}`, { origin: 'recebimento' });
+          }
+        }
+        r.status = 'excluido';
+        r.updatedAt = new Date().toISOString();
+        r.log.push({ at: r.updatedAt, by: me().name || '', action: 'excluído', detail: String(reason).trim() });
+        writeDb(db);
+      },
+
       // ---- só no modo demonstração ----
       async reset() {
         const fresh = clone(root.SAMPLE_DATA);
         fresh.counts = [];
+        fresh.receipts = [];
         writeDb(fresh);
       },
       async exportJson() {
@@ -274,6 +410,7 @@
         if (!d || !Array.isArray(d.parts) || !Array.isArray(d.products)) throw new Error('Arquivo inválido.');
         d.movements = Array.isArray(d.movements) ? d.movements : [];
         d.counts = Array.isArray(d.counts) ? d.counts : [];
+        d.receipts = Array.isArray(d.receipts) ? d.receipts : [];
         writeDb(d);
       },
     };

@@ -123,6 +123,13 @@
     return out;
   }
 
+  const receiptRows = (items) =>
+    items.map((i) => ({
+      part_id: i.partId,
+      expected: i.expected === null || i.expected === undefined || i.expected === '' ? null : Math.floor(Number(i.expected)),
+      received: Math.floor(Number(i.received)),
+    }));
+
   // ---------------- login ----------------
   async function fetchProfile(userId) {
     const rows = await api(`/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=id,name,role,active`);
@@ -216,7 +223,7 @@
 
       async load() {
         const manager = isManager();
-        const [parts, products, bom, moves, costs, prices, counts] = await Promise.all([
+        const [parts, products, bom, moves, costs, prices, counts, receipts] = await Promise.all([
           getAll('parts', 'select=id,code,name,stock,min,photo_url&order=name.asc'),
           getAll('products', 'select=id,code,name,category,photo_url&order=name.asc'),
           getAll('bom', 'select=product_id,part_id,qty'),
@@ -224,6 +231,7 @@
           manager ? getAll('part_costs', 'select=part_id,cost') : [],
           manager ? getAll('product_prices', 'select=product_id,price') : [],
           api('/rest/v1/rpc/list_counts', { method: 'POST', body: { p_limit: 30 } }),
+          api('/rest/v1/rpc/list_receipts', { method: 'POST', body: { p_limit: 100 } }),
         ]);
         const costOf = {};
         costs.forEach((c) => (costOf[c.part_id] = Number(c.cost)));
@@ -263,6 +271,18 @@
             reverts: m.reverts || null,
             revertedBy: m.reverted_by || null,
             origin: m.origin || '',
+          })),
+          receipts: (receipts || []).map((r) => ({
+            id: r.id,
+            num: r.num,
+            date: r.created_at,
+            updatedAt: r.updated_at,
+            who: r.user_name,
+            ref: r.ref,
+            supplier: r.supplier,
+            status: r.status,
+            items: (r.items || []).map((i) => ({ partId: i.part_id, name: i.name, code: i.code || '', expected: i.expected === undefined ? null : i.expected, received: i.received })),
+            log: r.log || [],
           })),
           counts: (counts || []).map((c) => ({
             id: c.id,
@@ -336,6 +356,19 @@
       },
       async reviewCount(id, approve) {
         await rpc('review_count', { p_id: id, p_approve: !!approve });
+      },
+
+      async createReceipt({ ref, items, supplier }) {
+        await rpc('create_receipt', { p_ref: ref || '', p_items: receiptRows(items), p_supplier: supplier || '' });
+      },
+      async approveReceipt(id) {
+        await rpc('approve_receipt', { p_id: id });
+      },
+      async editReceipt(id, { ref, items, supplier, reason }) {
+        await rpc('edit_receipt', { p_id: id, p_ref: ref || '', p_items: receiptRows(items), p_supplier: supplier || '', p_reason: reason || '' });
+      },
+      async deleteReceipt(id, reason) {
+        await rpc('delete_receipt', { p_id: id, p_reason: reason || '' });
       },
 
       async listUsers() {

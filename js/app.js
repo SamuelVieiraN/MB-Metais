@@ -128,6 +128,7 @@
     App.buyPlan = {};
     App.countInputs = {};
     App.countFilter = '';
+    App.rcFilter = 'todos';
     App.store = App.auth.isDemo ? root.createLocalStore(() => App.user) : root.createSupabaseStore(() => App.user);
     document.body.dataset.screen = 'app';
     renderUserBox();
@@ -815,13 +816,14 @@
     const mgr = App.isManager();
     const label = { entrada: 'Entrada', saida: mgr ? 'Saída' : 'Saiu p/ entrega', producao: 'Montagem' };
     const pill = { entrada: 'ok', saida: 'warn', producao: 'bad' };
-    const labelOf = (m) => (m.origin === 'estorno' ? 'Estorno' : m.origin === 'conferencia' ? 'Conferência' : label[m.type] || esc(m.type));
+    const originLabel = { estorno: 'Estorno', conferencia: 'Conferência', recebimento: 'Recebimento' };
+    const labelOf = (m) => originLabel[m.origin] || label[m.type] || esc(m.type);
     const rows = App.state.movements
       .slice(0, 300)
       .map((m) => {
         const sign = m.type === 'entrada' ? '+' : '−';
         const done = !!m.revertedBy;
-        const canUndo = mgr && !done && !m.reverts && (m.type === 'entrada' || m.type === 'saida');
+        const canUndo = mgr && !done && !m.reverts && m.origin !== 'recebimento' && (m.type === 'entrada' || m.type === 'saida');
         return `<tr${done ? ' class="reverted"' : ''}>
           <td class="num">${new Date(m.date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</td>
           <td><span class="pill ${m.origin ? 'info' : pill[m.type] || 'ok'}">${labelOf(m)}</span>${done ? ' <small class="muted">estornado</small>' : ''}</td>
