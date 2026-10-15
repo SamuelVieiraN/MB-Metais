@@ -448,3 +448,14 @@ td.pos { color: var(--ok); font-weight: 700; }
 td.neg { color: var(--bad); font-weight: 700; }
 .count-input { width: 110px; text-align: right; }
 tfoot td { border-top: 2px solid var(--line); background: #fbfdfd; }
+
+/* recebimento por lote */
+.rc-row { display: grid; grid-template-columns: 1fr 92px 92px 34px; gap: 6px; margin-bottom: 6px; }
+.rc-head { display: grid; grid-template-columns: 1fr 92px 92px 34px; gap: 6px; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin: 10px 0 4px; }
+.rc-row input { min-width: 0; }
+.rc-row .rc-exp, .rc-row .rc-rec { text-align: right; }
+.rc-log { margin: 0; padding-left: 18px; font-size: 0.86rem; color: var(--ink-soft); }
+.rc-log li { padding: 2px 0; }
+@media (max-width: 520px) {
+  .rc-row, .rc-head { grid-template-columns: 1fr 70px 70px 30px; }
+}
