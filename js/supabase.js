@@ -76,7 +76,8 @@
     await refreshIfNeeded();
     const headers = {
       apikey: anon,
-      Authorization: `Bearer ${session ? session.access_token : anon}`,
+      // chaves novas (sb_publishable_...) não são JWT: só vão no cabeçalho apikey
+      ...(session ? { Authorization: `Bearer ${session.access_token}` } : anon.startsWith('eyJ') ? { Authorization: `Bearer ${anon}` } : {}),
       ...(opts.headers || {}),
     };
     let body = opts.body;
