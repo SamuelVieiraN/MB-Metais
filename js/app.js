@@ -125,6 +125,9 @@
     App.tab = 'mostruario';
     App.filter = App.partFilter = App.category = '';
     App.simPlan = {};
+    App.buyPlan = {};
+    App.countInputs = {};
+    App.countFilter = '';
     App.store = App.auth.isDemo ? root.createLocalStore(() => App.user) : root.createSupabaseStore(() => App.user);
     document.body.dataset.screen = 'app';
     renderUserBox();
@@ -812,17 +815,21 @@
     const mgr = App.isManager();
     const label = { entrada: 'Entrada', saida: mgr ? 'Saída' : 'Saiu p/ entrega', producao: 'Montagem' };
     const pill = { entrada: 'ok', saida: 'warn', producao: 'bad' };
+    const labelOf = (m) => (m.origin === 'estorno' ? 'Estorno' : m.origin === 'conferencia' ? 'Conferência' : label[m.type] || esc(m.type));
     const rows = App.state.movements
       .slice(0, 300)
       .map((m) => {
         const sign = m.type === 'entrada' ? '+' : '−';
-        return `<tr>
+        const done = !!m.revertedBy;
+        const canUndo = mgr && !done && !m.reverts && (m.type === 'entrada' || m.type === 'saida');
+        return `<tr${done ? ' class="reverted"' : ''}>
           <td class="num">${new Date(m.date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</td>
-          <td><span class="pill ${pill[m.type] || 'ok'}">${label[m.type] || esc(m.type)}</span></td>
+          <td><span class="pill ${m.origin ? 'info' : pill[m.type] || 'ok'}">${labelOf(m)}</span>${done ? ' <small class="muted">estornado</small>' : ''}</td>
           <td>${esc(m.partName)}</td>
           <td class="right num">${sign}${int(m.qty)}</td>
           ${mgr ? `<td>${esc(m.note)}</td>` : ''}
           <td>${esc(m.who || roleLabel(m.role))}</td>
+          ${mgr ? `<td class="right">${canUndo ? `<button class="btn small" data-action="reverse-move" data-id="${m.id}">Estornar</button>` : ''}</td>` : ''}
         </tr>`;
       })
       .join('');
@@ -830,12 +837,12 @@
       <section class="page-head">
         <div>
           <h1>Histórico</h1>
-          <p class="muted">Últimas movimentações de peças: entradas, saídas e consumo das montagens.</p>
+          <p class="muted">Últimas movimentações de peças: entradas, saídas e consumo das montagens.${mgr ? ' Lançou algo por engano? Use <b>Estornar</b>: o estoque volta e o estorno fica registrado.' : ''}</p>
         </div>
       </section>
       <div class="table-wrap"><table>
-        <thead><tr><th>Quando</th><th>Tipo</th><th>Peça</th> <th class="right">Qtd.</th>${mgr ? '<th>Observação</th>' : ''}<th>Quem</th></tr></thead>
-        <tbody>${rows || `<tr><td colspan="${mgr ? 6 : 5}" class="empty">Ainda não há movimentações.</td></tr>`}</tbody>
+        <thead><tr><th>Quando</th><th>Tipo</th><th>Peça</th><th class="right">Qtd.</th>${mgr ? '<th>Observação</th>' : ''}<th>Quem</th>${mgr ? '<th></th>' : ''}</tr></thead>
+        <tbody>${rows || `<tr><td colspan="${mgr ? 7 : 5}" class="empty">Ainda não há movimentações.</td></tr>`}</tbody>
       </table></div>`;
   }
 
@@ -911,6 +918,15 @@
   //  Ações (botões com data-action)
   // =====================================================================
   Object.assign(App.actions, {
+    'reverse-move': async (id) => {
+      if (!App.isManager()) return;
+      const m = App.state.movements.find((x) => x.id === id);
+      if (!m) return;
+      const what = m.type === 'entrada' ? 'a entrada' : 'a saída';
+      if (!(await root.UI.confirmBox(`Estornar ${what} de ${m.qty} × ${m.partName}? O estoque volta ao que era e o estorno fica registrado no histórico.`, 'Estornar lançamento'))) return;
+      await App.commit(() => App.store.reverse(id));
+      toast('Lançamento estornado.');
+    },
     'close-modal': () => closeModal(),
     'close-lightbox': () => $('#lightbox').close(),
     logout: () => logout(),

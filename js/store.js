@@ -18,13 +18,16 @@
         const d = JSON.parse(raw);
         if (d && Array.isArray(d.parts) && Array.isArray(d.products)) {
           d.movements = Array.isArray(d.movements) ? d.movements : [];
+          d.counts = Array.isArray(d.counts) ? d.counts : [];
           return d;
         }
       }
     } catch (e) {
       /* usa os dados de exemplo */
     }
-    return clone(root.SAMPLE_DATA);
+    const fresh = clone(root.SAMPLE_DATA);
+    fresh.counts = [];
+    return fresh;
   }
 
   function writeDb(db) {
@@ -38,9 +41,9 @@
   function createLocalStore(getUser) {
     const me = () => getUser() || { name: '', role: 'funcionario' };
 
-    function logMove(db, part, type, qty, note) {
+    function logMove(db, part, type, qty, note, extra) {
       const u = me();
-      db.movements.unshift({
+      const mv = {
         id: uuid(),
         date: new Date().toISOString(),
         partId: part.id,
@@ -50,8 +53,13 @@
         note: note || '',
         role: u.role,
         who: u.name || '',
-      });
+        reverts: (extra && extra.reverts) || null,
+        revertedBy: null,
+        origin: (extra && extra.origin) || '',
+      };
+      db.movements.unshift(mv);
       if (db.movements.length > 1000) db.movements.length = 1000;
+      return mv;
     }
 
     const needManager = () => {
@@ -182,9 +190,82 @@
         writeDb(db);
       },
 
+      /** Estorno (gerente): desfaz uma entrada ou saída lançada por engano. */
+      async reverse(id) {
+        needManager();
+        const db = readDb();
+        const m = db.movements.find((x) => x.id === id);
+        if (!m) throw new Error('Movimentação não encontrada.');
+        if (m.type === 'producao') throw new Error('Montagens não podem ser estornadas aqui. Se preciso, registre uma entrada das peças.');
+        if (m.reverts) throw new Error('Isto já é um estorno e não pode ser estornado.');
+        if (m.revertedBy) throw new Error('Esta movimentação já foi estornada.');
+        const part = db.parts.find((p) => p.id === m.partId);
+        if (!part) throw new Error('A peça desta movimentação não existe mais.');
+        if (m.type === 'entrada') {
+          if (part.stock < m.qty) throw new Error(`Não dá para estornar: a entrada foi de ${m.qty} e só há ${part.stock} em estoque.`);
+          part.stock -= m.qty;
+        } else {
+          part.stock += m.qty;
+        }
+        const when = new Date(m.date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+        const back = logMove(db, part, m.type === 'entrada' ? 'saida' : 'entrada', m.qty, `Estorno do lançamento de ${when}`, { reverts: m.id, origin: 'estorno' });
+        m.revertedBy = back.id;
+        writeDb(db);
+      },
+
+      /** Conferência: qualquer usuário envia a contagem; o gerente aprova. items: [{ partId, counted }] */
+      async submitCount(items, note) {
+        if (!Array.isArray(items) || !items.length) throw new Error('Conte pelo menos uma peça.');
+        const db = readDb();
+        const out = items.map((it) => {
+          const counted = Math.floor(Number(it.counted));
+          if (!(counted >= 0)) throw new Error('A quantidade contada não pode ser negativa.');
+          const part = db.parts.find((p) => p.id === it.partId);
+          if (!part) throw new Error('Uma das peças contadas não existe mais.');
+          return { partId: part.id, name: part.name, code: part.code || '', system: part.stock, counted };
+        });
+        db.counts.unshift({
+          id: uuid(),
+          date: new Date().toISOString(),
+          who: me().name || '',
+          note: String(note || ''),
+          status: 'pendente',
+          items: out,
+          reviewedBy: '',
+          reviewedAt: null,
+        });
+        if (db.counts.length > 100) db.counts.length = 100;
+        writeDb(db);
+      },
+
+      async reviewCount(id, approve) {
+        needManager();
+        const db = readDb();
+        const c = db.counts.find((x) => x.id === id);
+        if (!c) throw new Error('Contagem não encontrada.');
+        if (c.status !== 'pendente') throw new Error(`Esta contagem já foi ${c.status}.`);
+        if (approve) {
+          for (const it of c.items) {
+            const part = db.parts.find((p) => p.id === it.partId);
+            if (!part) continue; // peça apagada depois da contagem
+            const diff = it.counted - part.stock;
+            if (diff !== 0) {
+              part.stock = it.counted;
+              logMove(db, part, diff > 0 ? 'entrada' : 'saida', Math.abs(diff), `Conferência de estoque (contagem de ${c.who})`, { origin: 'conferencia' });
+            }
+          }
+        }
+        c.status = approve ? 'aprovada' : 'rejeitada';
+        c.reviewedBy = me().name || '';
+        c.reviewedAt = new Date().toISOString();
+        writeDb(db);
+      },
+
       // ---- só no modo demonstração ----
       async reset() {
-        writeDb(clone(root.SAMPLE_DATA));
+        const fresh = clone(root.SAMPLE_DATA);
+        fresh.counts = [];
+        writeDb(fresh);
       },
       async exportJson() {
         return readDb();
@@ -192,6 +273,7 @@
       async importJson(d) {
         if (!d || !Array.isArray(d.parts) || !Array.isArray(d.products)) throw new Error('Arquivo inválido.');
         d.movements = Array.isArray(d.movements) ? d.movements : [];
+        d.counts = Array.isArray(d.counts) ? d.counts : [];
         writeDb(d);
       },
     };

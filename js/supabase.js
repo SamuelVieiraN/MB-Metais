@@ -216,13 +216,14 @@
 
       async load() {
         const manager = isManager();
-        const [parts, products, bom, moves, costs, prices] = await Promise.all([
+        const [parts, products, bom, moves, costs, prices, counts] = await Promise.all([
           getAll('parts', 'select=id,code,name,stock,min,photo_url&order=name.asc'),
           getAll('products', 'select=id,code,name,category,photo_url&order=name.asc'),
           getAll('bom', 'select=product_id,part_id,qty'),
           api('/rest/v1/rpc/list_movements', { method: 'POST', body: { p_limit: 500 } }),
           manager ? getAll('part_costs', 'select=part_id,cost') : [],
           manager ? getAll('product_prices', 'select=product_id,price') : [],
+          api('/rest/v1/rpc/list_counts', { method: 'POST', body: { p_limit: 30 } }),
         ]);
         const costOf = {};
         costs.forEach((c) => (costOf[c.part_id] = Number(c.cost)));
@@ -259,6 +260,19 @@
             note: m.note,
             role: m.user_role,
             who: m.user_name,
+            reverts: m.reverts || null,
+            revertedBy: m.reverted_by || null,
+            origin: m.origin || '',
+          })),
+          counts: (counts || []).map((c) => ({
+            id: c.id,
+            date: c.created_at,
+            who: c.user_name,
+            note: c.note,
+            status: c.status,
+            items: (c.items || []).map((i) => ({ partId: i.part_id, name: i.name, code: i.code || '', system: i.system, counted: i.counted })),
+            reviewedBy: c.reviewed_by_name,
+            reviewedAt: c.reviewed_at,
           })),
         };
       },
@@ -309,6 +323,19 @@
             /* sobra um arquivo no armazenamento; não atrapalha */
           }
         }
+      },
+
+      async reverse(id) {
+        await rpc('reverse_movement', { p_id: id });
+      },
+      async submitCount(items, note) {
+        await rpc('submit_count', {
+          p_items: items.map((i) => ({ part_id: i.partId, counted: Math.floor(Number(i.counted)) })),
+          p_note: note || '',
+        });
+      },
+      async reviewCount(id, approve) {
+        await rpc('review_count', { p_id: id, p_approve: !!approve });
       },
 
       async listUsers() {
