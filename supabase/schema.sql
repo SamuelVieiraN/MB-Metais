@@ -211,9 +211,35 @@ revoke all on all tables in schema public from anon;
 grant select, insert, update, delete on all tables in schema public to authenticated;
 -- movimentações e perfis só mudam pelas funções
 revoke insert, update, delete on public.movements from authenticated;
+-- o histórico só é lido pela função list_movements (abaixo), que esconde observações do funcionário
+revoke select on public.movements from authenticated;
 revoke insert, update, delete on public.profiles  from authenticated;
 
 -- ---------- funções (o que o site chama) ----------
+
+-- Histórico: o funcionário recebe só tipo, peça, quantidade, data/hora e quem fez.
+-- Observações (fornecedor, destinatário, valores digitados) só o gerente enxerga.
+create or replace function public.list_movements(p_limit integer default 500)
+returns table (id uuid, created_at timestamptz, part_id uuid, part_name text, type text,
+               qty integer, note text, user_name text, user_role text)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare me public.profiles;
+begin
+  me := public._require_active();
+  return query
+    select m.id, m.created_at, m.part_id, m.part_name, m.type, m.qty,
+           case when me.role = 'gerente' then m.note else ''::text end,
+           m.user_name, m.user_role
+    from public.movements m
+    order by m.created_at desc
+    limit least(greatest(coalesce(p_limit, 500), 1), 1000);
+end;
+$$;
+grant execute on function public.list_movements(integer) to authenticated;
 
 -- Entrada ou saída de uma peça.
 create or replace function public.apply_movement(
@@ -272,7 +298,7 @@ begin
   end if;
 
   insert into public.movements (part_id, part_name, type, qty, note, user_id, user_name, user_role)
-  values (p_part, v_name, p_type, p_qty, coalesce(p_note, ''), me.id, me.name, me.role);
+  values (p_part, v_name, p_type, p_qty, case when me.role = 'gerente' then coalesce(p_note, '') else '' end, me.id, me.name, me.role);
 end;
 $$;
 
