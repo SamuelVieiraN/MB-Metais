@@ -8,7 +8,7 @@
   'use strict';
 
   const App = root.App;
-  const { esc, int, icons, toast, confirmBox, openModal, $, $$ } = root.UI;
+  const { esc, int, icons, toast, confirmBox, openModal, uuid, $, $$ } = root.UI;
 
   App.rcFilter = App.rcFilter || 'todos';
 
@@ -148,7 +148,7 @@
       <datalist id="rc-parts">${options}</datalist>
       <div id="rc-rows">${rows}</div>
       <button type="button" class="btn small" data-action="rc-add-row">${icons.plus} Adicionar peça</button>
-      <p class="hint">Digite o código ou o nome e escolha na lista (um leitor de código de barras também serve). <b>Enter</b> avança; no campo "Chegou", cria uma linha nova. "Na nota" é opcional: serve para ver se chegou diferente do que veio na nota.</p>
+      <p class="hint">Digite o código ou o nome e escolha na lista (um leitor de código de barras também serve). ${manager ? 'Se a peça for nova, o sistema oferece cadastrá-la na hora.' : 'A peça precisa estar cadastrada; se for nova, peça ao gerente.'} <b>Enter</b> avança; no campo "Chegou", cria uma linha nova. "Na nota" é opcional: serve para ver se chegou diferente do que veio na nota.</p>
       ${
         concluded
           ? `<label>Motivo da edição (obrigatório)
@@ -167,8 +167,26 @@
           const exp = $('.rc-exp', row).value.trim();
           const rec = $('.rc-rec', row).value.trim();
           if (!text && !exp && !rec) continue;
-          const part = resolvePart(text);
-          if (!part) return { error: text ? `Não encontrei a peça "${text}". Escolha uma da lista.` : 'Há uma linha sem peça.' };
+          if (!text) return { error: 'Há uma linha com quantidade mas sem peça.' };
+          let part = resolvePart(text);
+          if (!part) {
+            const low = text.toLowerCase();
+            const near = App.state.parts.filter((p) => p.name.toLowerCase().includes(low) || (p.code && low.includes(p.code.toLowerCase()))).slice(0, 3);
+            const hint = near.length ? ` Você quis dizer: ${near.map((p) => `"${p.name}"`).join(', ')}?` : '';
+            if (!manager) {
+              return { error: `A peça "${text}" ainda não está cadastrada.${hint} Se ela for nova, peça ao gerente para cadastrá-la em Peças.` };
+            }
+            const ok = await confirmBox(
+              `A peça "${text}" ainda não está cadastrada.${hint} Quer cadastrá-la agora (estoque 0, o recebimento é que vai somar)?`,
+              'Cadastrar peça nova'
+            );
+            if (!ok) return { error: `Peça "${text}" não cadastrada. Corrija o nome ou escolha uma da lista.` };
+            const id = uuid();
+            await App.store.saveParts([{ id, code: '', name: text, stock: 0, min: 0 }], 'Cadastro pelo recebimento');
+            await App.refresh();
+            part = App.state.parts.find((p) => p.id === id);
+            if (!part) return { error: 'Não consegui cadastrar a peça. Tente em Peças > Nova peça.' };
+          }
           items.push({ partId: part.id, expected: exp === '' ? null : Number(exp), received: rec === '' ? 0 : Number(rec) });
         }
         if (!items.length) return { error: 'Inclua pelo menos uma peça.' };
