@@ -154,7 +154,11 @@
         let cost = p.cost;
         if (hasNewCost) {
           const total = p.stock + qty;
-          cost = total > 0 ? round2((p.stock * p.cost + qty * Number(unitCost)) / total) : Number(unitCost);
+          // Sem custo cadastrado, o da compra vale direto; senão, média ponderada.
+          cost =
+            p.cost > 0 && total > 0
+              ? round2((p.stock * p.cost + qty * Number(unitCost)) / total)
+              : round2(Number(unitCost));
         }
         return { ...p, stock: p.stock + qty, cost };
       }

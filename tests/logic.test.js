@@ -65,6 +65,11 @@ mv = L.applyMovement(parts, 'p01', 'saida', 41);
 assert.strictEqual(mv.ok, false);
 assert.strictEqual(L.applyMovement(parts, 'p01', 'saida', 0).ok, false);
 
+// 9b) Peça sem custo cadastrado: o custo da primeira compra vale direto (sem diluir)
+const semCusto = parts.map((p) => (p.id === 'p01' ? { ...p, cost: 0 } : p));
+mv = L.applyMovement(semCusto, 'p01', 'entrada', 10, 30);
+assert.strictEqual(mv.parts.find((p) => p.id === 'p01').cost, 30);
+
 // 10) Produto sem ficha técnica não produz nada
 assert.strictEqual(L.maxProducible({ bom: [] }, stock).max, 0);
 

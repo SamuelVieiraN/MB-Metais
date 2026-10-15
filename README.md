@@ -1,87 +1,95 @@
-# Estoque & Montagem
+# Estoque & Montagem — M&B Metais
 
 Sistema para controlar o estoque de peças de torneiras, duchas e acessórios e calcular quanto dá para montar de cada produto final.
 
-Esta é a **versão 1**: roda direto no navegador, sem instalar nada, com dados de exemplo.
+Funciona em **dois modos**, escolhidos pelo arquivo `js/config.js`:
 
-## O que já funciona
+- **Modo demonstração** (arquivo vazio, como vem): dados de exemplo, guardados só no navegador, login de mentira.
+- **Modo online** (com Supabase preenchido): login de verdade, banco de dados compartilhado, fotos na nuvem e valores financeiros protegidos no servidor.
+
+## O que tem
 
 | Aba | Para que serve |
 | --- | --- |
-| **Mostruário** | Cards com quanto dá para montar de cada produto, qual peça limita e alertas de estoque baixo. |
-| **Peças** | Estoque atual, mínimo, entradas e saídas. |
-| **Produtos** | Ficha técnica de cada produto (quais peças e quantas) e registro de montagem, que desconta as peças do estoque. |
-| **Simulação** | Você digita quanto quer montar de cada produto e vê, ao vivo, o consumo de peças, o que sobra, o que falta e quanto ainda dá para montar depois. Nada muda no estoque até você registrar. |
-| **Histórico** | Todas as entradas, saídas e consumos de montagem. |
-| **Financeiro** | Custo, preço, lucro e margem por produto, e dinheiro parado em estoque. Só para gerência. |
+| **Mostruário** | Catálogo com foto: quanto dá para montar de cada produto, qual peça limita, alertas. |
+| **Peças** | Estoque, mínimo, código, foto, entradas e saídas. |
+| **Produtos** | Ficha técnica, foto e registro de montagem (desconta as peças). |
+| **Simulação** | Quanto montar e o que sobra/falta, sem mexer no estoque. |
+| **Planilhas** | Exportar tudo para Excel (com ou sem valores) e importar uma planilha para atualizar. |
+| **Histórico** | Entradas, saídas e montagens, com quem fez. |
+| **Financeiro** | Custo, preço, lucro, margem. Só gerente. |
+| **Usuários** | Só gerente, só no modo online: nome, perfil, ativar/desativar. |
 
 ### Perfis
+- **Gerente:** vê tudo, edita tudo, importa planilhas.
+- **Funcionário:** vê estoque, fotos, produtos, simulação e histórico **sem valores em reais**; registra entradas, saídas e montagens.
 
-- **Gerente:** vê tudo, inclusive custos, preços e margens; cadastra e edita peças e produtos.
-- **Funcionário:** vê mostruário, peças, produtos, simulação e histórico **sem nenhum valor em reais**; registra entradas, saídas e montagens.
+No modo online, a regra vale no servidor: custos e preços ficam em tabelas que o funcionário não consegue ler, nem mexendo no navegador.
 
-### Como o custo é calculado
+## Planilhas (Excel)
 
-O custo de um produto é a soma de `quantidade × custo da peça` da ficha técnica. Quando você registra uma entrada informando o custo da compra, o custo da peça vira a **média ponderada** entre o estoque atual e a compra.
+- **Exportar:** gera `estoque-AAAA-MM-DD.xlsx`. A opção de incluir custos/preços só aparece para o gerente.
+- **Importar (gerente):** aceita `.xlsx` ou `.csv`. Baixe o modelo na própria aba. Antes de aplicar, mostra uma prévia do que vai mudar e baixa uma cópia de segurança do estoque atual. Você escolhe se a quantidade da planilha **substitui** ou **soma** ao estoque.
+- Arquivos `.xls` antigos precisam ser salvos como `.xlsx` no Excel.
 
-## Limitações desta versão (importante)
+## Colocar o login e o banco de dados online (Supabase)
 
-- **Os dados ficam só no navegador** de quem está usando. Outro computador ou celular não vê os mesmos dados. Use *Exportar backup* no rodapé para guardar uma cópia.
-- **A troca de perfil no topo é uma demonstração.** Qualquer pessoa pode trocar para Gerente, então isso **não protege** os valores financeiros de verdade. A proteção real exige login e banco de dados online (próximo passo abaixo).
-- Não há controle de estoque de produto acabado: a montagem consome peças e fica registrada no histórico, mas não soma "unidades prontas".
+1. Crie uma conta em [supabase.com](https://supabase.com) e um projeto novo (guarde a senha do banco).
+2. No projeto: **SQL Editor > New query**, cole **todo** o conteúdo de `supabase/schema.sql` e clique em **Run**.
+3. **Authentication > Users > Add user > Create new user**: informe seu e-mail e uma senha e marque **Auto Confirm User**.
+4. No SQL Editor, torne esse usuário gerente (troque o e-mail):
+   ```sql
+   update public.profiles set role = 'gerente'
+   where id = (select id from auth.users where email = 'seu@email.com');
+   ```
+5. **Authentication > Sign In / Providers** (ou *Settings*): desligue **Allow new users to sign up**. Assim só entra quem você criar.
+6. **Project Settings > API**: copie **Project URL** e a chave **anon / public**. Cole em `js/config.js`:
+   ```js
+   window.APP_CONFIG = { supabaseUrl: 'https://xxxx.supabase.co', supabaseAnonKey: 'eyJ...' };
+   ```
+   **Nunca** use a chave `service_role` aqui; a `anon` é feita para ficar no site.
+7. Suba para o GitHub (`git add .`, `git commit`, `git push`); a Vercel republica sozinha.
+8. Para cada funcionário: repita o passo 3 (ele entra como *funcionário* por padrão). Depois, na aba **Usuários**, ajuste nome e perfil.
 
-## Como rodar no seu computador
+Para desligar alguém: aba **Usuários**, desmarque *Ativo*.
 
-1. Instale o [VS Code](https://code.visualstudio.com/).
-2. Abra esta pasta no VS Code (`Arquivo > Abrir Pasta`).
-3. Instale a extensão **Live Server**, clique com o botão direito em `index.html` e escolha **Open with Live Server**. (Também funciona dando duplo clique em `index.html`.)
+### Aviso sobre o modo demonstração
+As senhas de demonstração (`gerente@mbmetais.demo`) estão no código público e os dados ficam só no navegador. É para mostrar o sistema, **não para dados reais**.
 
-### Testes das regras de cálculo
+### Sobre os testes do banco
+O `schema.sql` foi testado em um PostgreSQL 16 com um simulador das funções do Supabase (regras de acesso, estoque, montagem atômica, funcionário sem acesso a custos). Ainda não foi rodado no seu projeto Supabase real: se aparecer erro ao executar, copie a mensagem e me envie.
 
-Com o [Node.js](https://nodejs.org/) instalado:
+## Rodar no computador
+Abra a pasta no VS Code e use **Live Server** em `index.html` (ou dê duplo clique).
 
+Testes das regras (precisa de Node.js):
 ```bash
 node tests/logic.test.js
+node tests/sheets.test.js
 ```
 
-Deve aparecer `Todos os testes passaram.`
-
-## Como colocar no GitHub
-
-1. No GitHub, crie um repositório novo (sem README, sem .gitignore).
-2. Na pasta do projeto, no terminal do VS Code:
-
-```bash
-git init
-git add .
-git commit -m "Primeira versão do sistema de estoque"
-git branch -M main
-git remote add origin https://github.com/SEU-USUARIO/NOME-DO-REPOSITORIO.git
-git push -u origin main
-```
-
-Depois, a cada ajuste: `git add .`, `git commit -m "o que mudou"` e `git push`.
-
-## Como publicar na Vercel
-
-1. Entre em [vercel.com](https://vercel.com) com sua conta do GitHub.
-2. **Add New > Project** e escolha o repositório.
-3. Em **Framework Preset**, deixe **Other**. Não precisa de comando de build.
-4. Clique em **Deploy**. Você recebe um link público; a cada `git push`, a Vercel atualiza o site sozinha.
+## Publicar (GitHub + Vercel)
+Suba o **conteúdo** da pasta (não o .zip) para o repositório. Na Vercel: *Add New > Project*, preset **Other**, sem comando de build, **Deploy**. A cada `git push` o site atualiza.
 
 ## Estrutura
-
 ```
-index.html        página única
-css/style.css     visual
-js/data.js        dados de exemplo (peças, produtos)
-js/logic.js       regras de cálculo (produção máxima, custo, margem, simulação)
-js/app.js         telas e interações
-tests/            testes das regras de cálculo
+index.html            página única (login + app)
+css/style.css         visual
+js/config.js          liga o modo online (vazio = demonstração)
+js/data.js            dados de exemplo
+js/logic.js           regras de cálculo
+js/app.js             telas, abas e login
+js/store.js           armazenamento do modo demonstração
+js/supabase.js        armazenamento/login do modo online
+js/auth.js            login do modo demonstração
+js/xlsx-lite.js       leitura/escrita de .xlsx e .csv
+js/sheets.js          montagem do Excel e plano de importação
+js/views-sheets.js    aba Planilhas
+js/views-users.js     aba Usuários
+js/images.js          redução das fotos antes de guardar
+supabase/schema.sql   tabelas, regras de acesso e funções do banco
+tests/                testes
 ```
 
 ## Próximos passos sugeridos
-
-1. **Login e banco de dados online (Supabase):** dados compartilhados entre todos e perfis de verdade, com os valores financeiros protegidos no servidor.
-2. **Migrar para Next.js** quando o login entrar, reaproveitando `logic.js` e o visual.
-3. Estoque de produto acabado, importação de peças por planilha, e relatórios por período.
+Estoque de produto acabado, relatórios por período, alerta de reposição por e-mail.
