@@ -208,15 +208,20 @@
 
   function renderFoot() {
     const f = $('#foot');
+    const brand = `<div class="foot-brand">
+        <b>M&amp;B Indústria e Comércio de Metais</b>
+        <span>Torneiras · duchas · acessórios para banheiro</span>
+        <span class="foot-copy">© ${new Date().getFullYear()} M&amp;B Metais. Todos os direitos reservados.</span>
+      </div>`;
     if (App.isRemote()) {
-      f.innerHTML = `<span>Conectado ao banco de dados online.</span>`;
+      f.innerHTML = brand + `<span>Conectado ao banco de dados online.</span>`;
     } else if (App.isManager()) {
-      f.innerHTML = `<span>Modo demonstração: dados salvos neste navegador.</span>
+      f.innerHTML = brand + `<span>Modo demonstração: dados salvos neste navegador.</span>
         <button class="btn small" data-action="export-json">Exportar backup</button>
         <button class="btn small" data-action="import-json">Importar backup</button>
         <button class="btn small danger" data-action="reset-demo">Restaurar dados de exemplo</button>`;
     } else {
-      f.innerHTML = `<span>Modo demonstração. Valores financeiros ficam ocultos para o perfil Funcionário.</span>`;
+      f.innerHTML = brand + `<span>Modo demonstração. Valores financeiros ficam ocultos para o perfil Funcionário.</span>`;
     }
   }
 
