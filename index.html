@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Estoque &amp; Montagem</title>
+    <meta name="description" content="Controle de estoque de peças e cálculo de montagem de torneiras, duchas e acessórios." />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
+          <path d="M16 3C16 3 6 14.2 6 20.5a10 10 0 0 0 20 0C26 14.2 16 3 16 3z" fill="currentColor" opacity=".95" />
+          <path d="M11.5 20.8a4.6 4.6 0 0 0 4.2 4.4" fill="none" stroke="#0b4f5c" stroke-width="2" stroke-linecap="round" />
+        </svg>
+        <div>
+          <strong>Estoque &amp; Montagem</strong>
+          <span>torneiras · duchas · acessórios</span>
+        </div>
+      </div>
+      <label class="role-switch" title="Modo demonstração: troque a visão para testar. No sistema final, o perfil vem do login de cada pessoa.">
+        <span>Visão</span>
+        <select id="role">
+          <option value="gerente">Gerente</option>
+          <option value="funcionario">Funcionário</option>
+        </select>
+      </label>
+    </header>
+
+    <nav id="tabs" class="tabs" aria-label="Seções"></nav>
+    <main id="view"></main>
+
+    <footer class="foot" id="foot"></footer>
+
+    <dialog id="modal"></dialog>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <input type="file" id="import-file" accept="application/json" hidden />
+
+    <script src="js/data.js"></script>
+    <script src="js/logic.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>
