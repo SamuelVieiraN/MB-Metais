@@ -15,14 +15,14 @@ Funciona em **dois modos**, escolhidos pelo arquivo `js/config.js`:
 | **Peças** | Estoque, mínimo, código, foto, entradas e saídas. |
 | **Produtos** | Ficha técnica, foto e registro de montagem (desconta as peças). |
 | **Simulação** | Quanto montar e o que sobra/falta, sem mexer no estoque. |
-| **Planilhas** | Exportar tudo para Excel (com ou sem valores) e importar uma planilha para atualizar. |
+| **Planilhas** | Só gerente: exportar tudo para Excel (com ou sem valores) e importar uma planilha para atualizar. |
 | **Histórico** | Entradas, saídas e montagens, com quem fez. |
 | **Financeiro** | Custo, preço, lucro, margem. Só gerente. |
 | **Usuários** | Só gerente, só no modo online: nome, perfil, ativar/desativar. |
 
 ### Perfis
 - **Gerente:** vê tudo, edita tudo, importa planilhas.
-- **Funcionário:** vê estoque, fotos, produtos, simulação e histórico **sem valores em reais**; registra entradas, saídas e montagens.
+- **Funcionário:** vê estoque, fotos, produtos, simulação e histórico **sem valores em reais**; registra entradas, saídas e montagens. Não vê a aba Planilhas. No histórico, vê só tipo, peça, quantidade, data/hora e quem registrou (as observações são do gerente), e as saídas aparecem como "Saiu p/ entrega".
 
 No modo online, a regra vale no servidor: custos e preços ficam em tabelas que o funcionário não consegue ler, nem mexendo no navegador.
 
@@ -52,6 +52,9 @@ No modo online, a regra vale no servidor: custos e preços ficam em tabelas que 
 8. Para cada funcionário: repita o passo 3 (ele entra como *funcionário* por padrão). Depois, na aba **Usuários**, ajuste nome e perfil.
 
 Para desligar alguém: aba **Usuários**, desmarque *Ativo*.
+
+### Atualizando um banco que já existe
+Se o `schema.sql` já foi rodado antes, rode apenas `supabase/migracao-2-historico.sql` no SQL Editor (pode rodar mais de uma vez sem problema).
 
 ### Aviso sobre o modo demonstração
 As senhas de demonstração (`gerente@mbmetais.demo`) estão no código público e os dados ficam só no navegador. É para mostrar o sistema, **não para dados reais**.
