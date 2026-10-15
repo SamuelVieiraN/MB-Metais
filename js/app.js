@@ -208,10 +208,15 @@
 
   function renderFoot() {
     const f = $('#foot');
+    const co = {
+      name: 'M&B Industria e Comercio de Metais',
+      cnpj: '44.702.361/0001-55',
+      address: 'Rua A (Lot Laguna Park 6), 107 · Lagoa Redonda · Fortaleza/CE · CEP 60831-222',
+    };
     const brand = `<div class="foot-brand">
-        <b>M&amp;B Indústria e Comércio de Metais</b>
-        <span>Torneiras · duchas · acessórios para banheiro</span>
-        <span class="foot-copy">© ${new Date().getFullYear()} M&amp;B Metais. Todos os direitos reservados.</span>
+        <b>${esc(co.name)}</b>
+        <span class="foot-copy">© ${new Date().getFullYear()} ${esc(co.name)}. Todos os direitos reservados.</span>
+        <span class="foot-info">CNPJ ${esc(co.cnpj)} · ${esc(co.address)}</span>
       </div>`;
     if (App.isRemote()) {
       f.innerHTML = brand + `<span>Conectado ao banco de dados online.</span>`;
