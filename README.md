@@ -14,6 +14,7 @@ Funciona em **dois modos**, escolhidos pelo arquivo `js/config.js`:
 | **Mostruário** | Catálogo com foto: quanto dá para montar de cada produto, qual peça limita, alertas. |
 | **Peças** | Estoque, mínimo, código, foto, entradas e saídas. |
 | **Produtos** | Ficha técnica, foto e registro de montagem (desconta as peças). |
+| **Recebimento** | Chegou mercadoria (pela nota fiscal)? Qualquer pessoa registra o lote; o gerente autoriza e só então entra no estoque. Fica o registro: Aguardando autorização, Concluído, Concluído (editado) ou Excluído, com motivo. |
 | **Reposição** | Lista de compras: o que falta para o mínimo e, se quiser, para uma meta de produção. Copia a lista ou baixa em Excel. |
 | **Simulação** | Quanto montar e o que sobra/falta, sem mexer no estoque. |
 | **Conferência** | Contagem de estoque: qualquer pessoa conta às cegas, o gerente vê as diferenças e aprova o ajuste. |
@@ -59,6 +60,7 @@ Para desligar alguém: aba **Usuários**, desmarque *Ativo*.
 Se o `schema.sql` já foi rodado antes, rode as migrações que faltam, em ordem, no SQL Editor (podem ser repetidas sem problema):
 1. `supabase/migracao-2-historico.sql`
 2. `supabase/migracao-3-estorno-conferencia.sql` (estorno, reposição e conferência)
+3. `supabase/migracao-4-recebimento.sql` (recebimento por lote)
 
 Antes de publicar o site novo, rode a migração; se o site subir antes, as telas dão erro até ela rodar.
 
@@ -96,6 +98,7 @@ js/sheets.js          montagem do Excel e plano de importação
 js/views-sheets.js    aba Planilhas
 js/views-users.js     aba Usuários
 js/views-extra.js     abas Reposição e Conferência
+js/views-recebimento.js aba Recebimento
 js/images.js          redução das fotos antes de guardar
 supabase/schema.sql   tabelas, regras de acesso e funções do banco
 tests/                testes
