@@ -73,4 +73,29 @@ assert.strictEqual(mv.parts.find((p) => p.id === 'p01').cost, 30);
 // 10) Produto sem ficha técnica não produz nada
 assert.strictEqual(L.maxProducible({ bom: [] }, stock).max, 0);
 
+// 11) Pedidos: produtos prontos são repartidos entre pedidos abertos, o mais antigo primeiro
+const prodsReady = products.map((p) => (p.id === 'pr1' ? { ...p, ready: 6 } : p));
+const orders = [
+  { id: 'o2', status: 'aberto', date: '2026-10-02', items: [{ productId: 'pr1', name: 'A', qty: 4 }] },
+  { id: 'o1', status: 'aberto', date: '2026-10-01', items: [{ productId: 'pr1', name: 'A', qty: 4 }, { productId: 'pr3', name: 'B', qty: 2 }] },
+  { id: 'o3', status: 'concluido', date: '2026-09-01', items: [{ productId: 'pr1', name: 'A', qty: 9 }] },
+];
+const al = L.allocateReady(orders, prodsReady);
+assert.strictEqual(al.o1.pr1, 4);
+assert.strictEqual(al.o2.pr1, 2); // sobraram só 2 para o pedido mais novo
+assert.strictEqual(al.o3, undefined); // concluído não disputa
+let pg = L.orderProgress(orders[1], al.o1, prodsReady, parts);
+assert.strictEqual(pg.have, 4);
+assert.strictEqual(pg.missing, 2);
+assert.strictEqual(pg.complete, false);
+assert.strictEqual(pg.pct, 67);
+assert.strictEqual(pg.buildable, true); // faltam 2 ducha pr3 e há peças
+pg = L.orderProgress({ id: 'x', status: 'aberto', items: [{ productId: 'pr3', name: 'B', qty: 25 }] }, {}, prodsReady, parts);
+assert.strictEqual(pg.buildable, false);
+assert.ok(pg.partShortages.some((r) => r.partId === 'p10')); // registro de pressão é o gargalo
+pg = L.orderProgress(orders[0], al.o2, prodsReady, parts);
+assert.strictEqual(pg.have, 2);
+pg = L.orderProgress(orders[2], undefined, prodsReady, parts);
+assert.strictEqual(pg.complete, true);
+
 console.log('Todos os testes passaram.');
