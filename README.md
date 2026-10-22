@@ -66,6 +66,7 @@ Se o `schema.sql` já foi rodado antes, rode as migrações que faltam, em ordem
 4. `supabase/migracao-5-auditoria-guia.sql` (auditoria de custos, custo de compra no recebimento, guia de montagem)
 5. `supabase/migracao-6-pedidos.sql` (produto pronto e pedidos de clientes)
 6. `supabase/migracao-7-montados.sql` (aba Montados, histórico de montados, reserva para pedido)
+7. `supabase/migracao-8-fotos-desmontagem.sql` (várias fotos por produto, venda direta e desmontagem)
 
 Antes de publicar o site novo, rode a migração; se o site subir antes, as telas dão erro até ela rodar.
 
@@ -110,10 +111,19 @@ js/views-extra.js     abas Reposição e Conferência
 js/views-recebimento.js aba Recebimento
 js/views-orders.js    aba Pedidos
 js/views-montados.js  aba Montados
+js/views-moves.js     aba Movimentações
+js/views-hoje.js      tela Hoje
 js/images.js          redução das fotos antes de guardar
 supabase/schema.sql   tabelas, regras de acesso e funções do banco
 tests/                testes (fixture-data.js = dados pequenos fixos dos testes)
 ```
+
+## Navegação e telas principais
+- **Hoje**: tela inicial. Funcionário: receber, montar, contar + o que falta montar. Gerente: pendências e atalhos.
+- **Estoque** (Peças, Recebimento, Reposição, Conferência) · **Produção** (Produtos, Montados, Simulação) · **Pedidos** (com os últimos 5) · **Movimentações** (produtos e peças, com botão lateral) · **Gerência** (Financeiro, Planilhas, Usuários).
+- Produtos têm até 6 fotos (carrossel: direita/esquerda trocam, centro amplia).
+- Montados > Movimentar: entrada, venda direta, desmontar (peças voltam) e perda.
+- Ao atualizar o banco, rode `supabase/migracao-8-fotos-desmontagem.sql` antes de publicar o site.
 
 ## Próximos passos sugeridos
 Estoque de produto acabado, relatórios por período, alerta de reposição por e-mail.
