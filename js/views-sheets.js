@@ -140,7 +140,7 @@
         manager && App.store.kind === 'supabase'
           ? `<div class="card sheet-card" style="margin-top:16px">
               <h2>Estoque fictício para demonstração</h2>
-              <p class="muted">Carrega 49 peças e 17 produtos (torneiras, duchas e chuveiros) com ficha técnica, guia de montagem e foto do produto montado. Serve para mostrar o sistema funcionando. Depois, remova antes de lançar o estoque real: <b>só sai o que foi carregado por aqui</b>.</p>
+              <p class="muted">Carrega 49 peças, 17 produtos (torneiras, duchas e chuveiros) com ficha técnica, guia de montagem, foto do produto montado, alguns produtos já montados e 3 pedidos de exemplo. Serve para mostrar o sistema funcionando. Depois, remova antes de lançar o estoque real: <b>só sai o que foi carregado por aqui</b>.</p>
               <div class="actions"><button class="btn" data-action="demo-load">Carregar estoque fictício</button>
               <button class="btn danger" data-action="demo-remove">Remover estoque fictício</button></div>
             </div>`
@@ -227,10 +227,14 @@
       );
       await App.store.saveProducts(
         D.products.map((p) => ({
-          id: demoId(p.id), code: p.code, name: p.name, category: p.category, price: p.price, guide: p.guide || [],
+          id: demoId(p.id), code: p.code, name: p.name, category: p.category, price: p.price, guide: p.guide || [], ready: p.ready || 0,
           bom: p.bom.map((b) => ({ partId: demoId(b.partId), qty: b.qty })),
         }))
       );
+      for (const o of [...(D.orders || [])].reverse()) {
+        if ((App.state.orders || []).some((x) => x.ref === o.ref && String(x.customer).startsWith('[Demonstração]'))) continue;
+        await App.store.createOrder({ customer: o.customer, ref: o.ref, items: o.items.map((i) => ({ productId: demoId(i.productId), qty: i.qty })) });
+      }
       for (const p of D.products) {
         if (!p.photo) continue;
         try {
@@ -252,6 +256,9 @@
     if (!(await confirmBox('Remover o estoque fictício? Somem as peças e os produtos fictícios (os seus cadastros reais ficam). O histórico de movimentações continua registrado.', 'Remover', true))) return;
     try {
       const D = root.SAMPLE_DATA;
+      for (const o of App.state.orders || []) {
+        if (o.status === 'aberto' && String(o.customer).startsWith('[Demonstração]')) await App.store.cancelOrder(o.id, 'Remoção do estoque fictício');
+      }
       for (const p of D.products) if (App.state.products.some((x) => x.id === demoId(p.id))) await App.store.deleteProduct(demoId(p.id));
       for (const p of D.parts) if (App.state.parts.some((x) => x.id === demoId(p.id))) await App.store.deletePart(demoId(p.id));
       await App.refresh();

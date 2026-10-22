@@ -175,7 +175,59 @@
     return round2(parts.reduce((sum, p) => sum + p.stock * (p.cost || 0), 0));
   }
 
+  /**
+   * Pedidos em andamento disputam os produtos prontos por ordem de chegada (o mais antigo primeiro).
+   * Devolve { idDoPedido: { idDoProduto: quantidade reservada para ele } }.
+   */
+  function allocateReady(orders, products) {
+    const ready = {};
+    products.forEach((p) => (ready[p.id] = Math.max(0, Math.floor(p.ready || 0))));
+    const open = (orders || []).filter((o) => o.status === 'aberto').sort((a, b) => new Date(a.date) - new Date(b.date));
+    const out = {};
+    for (const o of open) {
+      out[o.id] = {};
+      for (const it of o.items) {
+        const give = Math.min(ready[it.productId] || 0, it.qty);
+        ready[it.productId] = (ready[it.productId] || 0) - give;
+        out[o.id][it.productId] = give;
+      }
+    }
+    return out;
+  }
+
+  /** Andamento de um pedido: o que já está montado, o que falta e se as peças dão para o que falta. */
+  function orderProgress(order, alloc, products, parts) {
+    const byProd = {};
+    products.forEach((p) => (byProd[p.id] = p));
+    const mine = alloc || {};
+    const done = order.status === 'concluido';
+    const lines = order.items.map((it) => {
+      const have = done ? it.qty : Math.min(it.qty, mine[it.productId] || 0);
+      return { productId: it.productId, name: it.name, code: it.code || '', qty: it.qty, have, missing: it.qty - have, gone: !byProd[it.productId] };
+    });
+    const total = lines.reduce((s, l) => s + l.qty, 0);
+    const have = lines.reduce((s, l) => s + l.have, 0);
+    const plan = {};
+    lines.forEach((l) => {
+      if (l.missing > 0 && !l.gone) plan[l.productId] = l.missing;
+    });
+    const sim = simulate(plan, products, parts);
+    return {
+      lines,
+      total,
+      have,
+      missing: total - have,
+      pct: total ? Math.round((have / total) * 100) : 0,
+      complete: total > 0 && have === total && !lines.some((l) => l.gone),
+      buildable: Object.keys(plan).length === 0 ? true : sim.feasible,
+      partShortages: sim.rows.filter((r) => r.missing > 0),
+      gone: lines.some((l) => l.gone),
+    };
+  }
+
   return {
+    allocateReady,
+    orderProgress,
     round2,
     partsById,
     stockMap,

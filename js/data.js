@@ -1,4 +1,4 @@
-/* Estoque fictício de demonstração (M&B Metais). Gerado: 49 peças e 17 produtos com fichas e guias. */
+/* Estoque fictício de demonstração (M&B Metais). Gerado: 49 peças, 17 produtos com fichas e guias, produtos prontos e 3 pedidos. */
 window.SAMPLE_DATA = {
  "parts": [
   {
@@ -397,6 +397,7 @@ window.SAMPLE_DATA = {
  "products": [
   {
    "id": "pr01",
+   "ready": 24,
    "code": "PR001",
    "name": "Torneira de lavatório bica baixa cromada",
    "category": "Torneiras básicas",
@@ -457,6 +458,7 @@ window.SAMPLE_DATA = {
   },
   {
    "id": "pr02",
+   "ready": 12,
    "code": "PR002",
    "name": "Torneira de mesa bica média cromada",
    "category": "Torneiras básicas",
@@ -517,6 +519,7 @@ window.SAMPLE_DATA = {
   },
   {
    "id": "pr03",
+   "ready": 30,
    "code": "PR003",
    "name": "Torneira de jardim 3/4\" com volante",
    "category": "Torneiras básicas",
@@ -567,6 +570,7 @@ window.SAMPLE_DATA = {
   },
   {
    "id": "pr04",
+   "ready": 0,
    "code": "PR004",
    "name": "Torneira de tanque 1/2\" cromada",
    "category": "Torneiras básicas",
@@ -623,6 +627,7 @@ window.SAMPLE_DATA = {
   },
   {
    "id": "pr05",
+   "ready": 0,
    "code": "PR005",
    "name": "Torneira de cozinha de bancada, bica móvel",
    "category": "Torneiras básicas",
@@ -686,6 +691,7 @@ window.SAMPLE_DATA = {
   },
   {
    "id": "pr06",
+   "ready": 6,
    "code": "PR006",
    "name": "Misturador monocomando de lavatório, bica alta, cromado",
    "category": "Torneiras alto padrão",
@@ -746,6 +752,7 @@ window.SAMPLE_DATA = {
   },
   {
    "id": "pr07",
+   "ready": 3,
    "code": "PR007",
    "name": "Misturador monocomando de lavatório, bica alta, preto fosco",
    "category": "Torneiras alto padrão",
@@ -806,6 +813,7 @@ window.SAMPLE_DATA = {
   },
   {
    "id": "pr08",
+   "ready": 0,
    "code": "PR008",
    "name": "Misturador monocomando de lavatório, bica alta, dourado escovado",
    "category": "Torneiras alto padrão",
@@ -866,6 +874,7 @@ window.SAMPLE_DATA = {
   },
   {
    "id": "pr09",
+   "ready": 0,
    "code": "PR009",
    "name": "Misturador de parede para lavatório, inox escovado",
    "category": "Torneiras alto padrão",
@@ -925,6 +934,7 @@ window.SAMPLE_DATA = {
   },
   {
    "id": "pr10",
+   "ready": 0,
    "code": "PR010",
    "name": "Misturador monocomando de cozinha gourmet com ducha extensível",
    "category": "Torneiras alto padrão",
@@ -988,6 +998,7 @@ window.SAMPLE_DATA = {
   },
   {
    "id": "pr11",
+   "ready": 8,
    "code": "PR011",
    "name": "Ducha higiênica com registro cromada",
    "category": "Duchas higiênicas",
@@ -1054,6 +1065,7 @@ window.SAMPLE_DATA = {
   },
   {
    "id": "pr12",
+   "ready": 0,
    "code": "PR012",
    "name": "Ducha higiênica premium com registro e gatilho metálico",
    "category": "Duchas higiênicas",
@@ -1120,6 +1132,7 @@ window.SAMPLE_DATA = {
   },
   {
    "id": "pr13",
+   "ready": 0,
    "code": "PR013",
    "name": "Chuveiro elétrico simples 5500 W, 4 temperaturas",
    "category": "Chuveiros básicos",
@@ -1182,6 +1195,7 @@ window.SAMPLE_DATA = {
   },
   {
    "id": "pr14",
+   "ready": 10,
    "code": "PR014",
    "name": "Chuveiro ducha simples com braço articulado",
    "category": "Chuveiros básicos",
@@ -1236,6 +1250,7 @@ window.SAMPLE_DATA = {
   },
   {
    "id": "pr15",
+   "ready": 0,
    "code": "PR015",
    "name": "Chuveiro com desviador e ducha de mão cromados",
    "category": "Chuveiros médio padrão",
@@ -1302,6 +1317,7 @@ window.SAMPLE_DATA = {
   },
   {
    "id": "pr16",
+   "ready": 0,
    "code": "PR016",
    "name": "Chuveiro de parede redondo inox 20 cm com misturador embutir",
    "category": "Chuveiros alto padrão",
@@ -1369,6 +1385,7 @@ window.SAMPLE_DATA = {
   },
   {
    "id": "pr17",
+   "ready": 3,
    "code": "PR017",
    "name": "Chuveiro de teto quadrado 30 cm preto fosco com misturador embutir",
    "category": "Chuveiros alto padrão",
@@ -1431,5 +1448,115 @@ window.SAMPLE_DATA = {
    ]
   }
  ],
- "movements": []
+ "movements": [],
+ "orders": [
+  {
+   "id": "or03",
+   "num": 3,
+   "date": "2026-10-21T15:20:00.000Z",
+   "updatedAt": "2026-10-21T15:20:00.000Z",
+   "who": "Gerente demo",
+   "customer": "[Demonstração] Hotel Gama",
+   "ref": "PED-103",
+   "status": "aberto",
+   "items": [
+    {
+     "productId": "pr08",
+     "name": "Misturador monocomando de lavatório, bica alta, dourado escovado",
+     "code": "PR008",
+     "qty": 3
+    },
+    {
+     "productId": "pr17",
+     "name": "Chuveiro de teto quadrado 30 cm preto fosco com misturador embutir",
+     "code": "PR017",
+     "qty": 3
+    }
+   ],
+   "log": [
+    {
+     "at": "2026-10-21T15:20:00.000Z",
+     "by": "Gerente demo",
+     "action": "criado",
+     "detail": ""
+    }
+   ]
+  },
+  {
+   "id": "or02",
+   "num": 2,
+   "date": "2026-10-20T13:05:00.000Z",
+   "updatedAt": "2026-10-20T13:05:00.000Z",
+   "who": "Gerente demo",
+   "customer": "[Demonstração] Loja Beta",
+   "ref": "PED-102",
+   "status": "aberto",
+   "items": [
+    {
+     "productId": "pr07",
+     "name": "Misturador monocomando de lavatório, bica alta, preto fosco",
+     "code": "PR007",
+     "qty": 8
+    },
+    {
+     "productId": "pr12",
+     "name": "Ducha higiênica premium com registro e gatilho metálico",
+     "code": "PR012",
+     "qty": 4
+    },
+    {
+     "productId": "pr13",
+     "name": "Chuveiro elétrico simples 5500 W, 4 temperaturas",
+     "code": "PR013",
+     "qty": 5
+    }
+   ],
+   "log": [
+    {
+     "at": "2026-10-20T13:05:00.000Z",
+     "by": "Gerente demo",
+     "action": "criado",
+     "detail": ""
+    }
+   ]
+  },
+  {
+   "id": "or01",
+   "num": 1,
+   "date": "2026-10-19T12:40:00.000Z",
+   "updatedAt": "2026-10-19T12:40:00.000Z",
+   "who": "Gerente demo",
+   "customer": "[Demonstração] Construtora Alfa",
+   "ref": "PED-101",
+   "status": "aberto",
+   "items": [
+    {
+     "productId": "pr01",
+     "name": "Torneira de lavatório bica baixa cromada",
+     "code": "PR001",
+     "qty": 20
+    },
+    {
+     "productId": "pr06",
+     "name": "Misturador monocomando de lavatório, bica alta, cromado",
+     "code": "PR006",
+     "qty": 6
+    },
+    {
+     "productId": "pr14",
+     "name": "Chuveiro ducha simples com braço articulado",
+     "code": "PR014",
+     "qty": 10
+    }
+   ],
+   "log": [
+    {
+     "at": "2026-10-19T12:40:00.000Z",
+     "by": "Gerente demo",
+     "action": "criado",
+     "detail": ""
+    }
+   ]
+  }
+ ]
 };

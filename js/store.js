@@ -7,7 +7,7 @@
   'use strict';
 
   const L = root.Logic;
-  const KEY = 'estoque-torneiras:v2';
+  const KEY = 'estoque-torneiras:v3';
   const clone = (o) => JSON.parse(JSON.stringify(o));
   const uuid = () => root.UI.uuid();
 
@@ -21,6 +21,8 @@
           d.counts = Array.isArray(d.counts) ? d.counts : [];
           d.receipts = Array.isArray(d.receipts) ? d.receipts : [];
           d.priceLog = Array.isArray(d.priceLog) ? d.priceLog : [];
+          d.orders = Array.isArray(d.orders) ? d.orders : [];
+          d.products.forEach((p) => (p.ready = Math.max(0, Math.floor(p.ready || 0))));
           return d;
         }
       }
@@ -31,6 +33,7 @@
     fresh.counts = [];
     fresh.receipts = [];
     fresh.priceLog = [];
+    fresh.orders = fresh.orders || [];
     return fresh;
   }
 
@@ -63,6 +66,21 @@
     });
     if (!any) throw new Error('Informe a quantidade recebida de pelo menos uma peça.');
     return out;
+  }
+
+  /** Valida os itens de um pedido (mesmas regras do banco). */
+  function orderItems(db, items) {
+    if (!Array.isArray(items) || !items.length) throw new Error('Inclua pelo menos um produto no pedido.');
+    const seen = new Set();
+    return items.map((it) => {
+      const p = db.products.find((x) => x.id === it.productId);
+      if (!p) throw new Error('Um dos produtos do pedido não existe mais.');
+      if (seen.has(p.id)) throw new Error(`O produto "${p.name}" aparece duas vezes. Some as quantidades em uma linha só.`);
+      seen.add(p.id);
+      const qty = Math.floor(Number(it.qty));
+      if (!(qty > 0)) throw new Error('A quantidade de cada produto deve ser maior que zero.');
+      return { productId: p.id, name: p.name, code: p.code || '', qty };
+    });
   }
 
   function createLocalStore(getUser) {
@@ -112,6 +130,10 @@
             r.items.forEach((i) => delete i.unitCost);
           });
           db.priceLog = [];
+          db.orders.forEach((o) => {
+            o.customer = '';
+            o.log = o.log.map((e) => ({ ...e, detail: '' }));
+          });
         }
         return db;
       },
@@ -168,7 +190,7 @@
           let product = db.products.find((p) => p.id === it.id);
           let isNew = false;
           if (!product) {
-            product = { id: it.id, code, name, category, price: 0, bom: [], guide: [] };
+            product = { id: it.id, code, name, category, price: 0, bom: [], guide: [], ready: 0 };
             db.products.push(product);
             isNew = true;
           }
@@ -176,6 +198,10 @@
           if (price !== null) {
             logPrice(db, 'preco', product, isNew ? null : product.price, price, isNew ? 'cadastro' : 'manual');
             product.price = price;
+          }
+          if (typeof it.ready === 'number') {
+            if (!Number.isInteger(it.ready) || it.ready < 0) throw new Error('A quantidade de produtos prontos deve ser um número inteiro, a partir de zero.');
+            product.ready = it.ready;
           }
           if (Array.isArray(it.guide)) product.guide = it.guide.map((x) => String(x).trim()).filter(Boolean);
           if (Array.isArray(it.bom)) {
@@ -233,6 +259,7 @@
           logMove(db, byId[partId], 'producao', res.consumed[partId], `Montagem: ${Math.floor(Number(qty))}× ${product.name}`);
         }
         db.parts = res.parts;
+        product.ready = (product.ready || 0) + Math.floor(Number(qty));
         writeDb(db);
       },
 
@@ -428,12 +455,78 @@
         writeDb(db);
       },
 
+      // ---- Pedidos de clientes ----
+      /** items: [{ productId, qty }] */
+      async createOrder({ customer, ref, items }) {
+        needManager();
+        const db = readDb();
+        const out = orderItems(db, items);
+        db.orders.unshift({
+          id: uuid(),
+          num: (db.orders.reduce((m, o) => Math.max(m, o.num || 0), 0) || 0) + 1,
+          date: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          who: me().name || '',
+          customer: String(customer || '').trim(),
+          ref: String(ref || '').trim(),
+          status: 'aberto',
+          items: out,
+          log: [{ at: new Date().toISOString(), by: me().name || '', action: 'criado', detail: '' }],
+        });
+        writeDb(db);
+      },
+      async editOrder(id, { customer, ref, items }) {
+        needManager();
+        const db = readDb();
+        const o = db.orders.find((x) => x.id === id);
+        if (!o) throw new Error('Pedido não encontrado.');
+        if (o.status !== 'aberto') throw new Error('Só pedidos em andamento podem ser editados.');
+        o.items = orderItems(db, items);
+        o.customer = String(customer || '').trim();
+        o.ref = String(ref || '').trim();
+        o.updatedAt = new Date().toISOString();
+        o.log.push({ at: o.updatedAt, by: me().name || '', action: 'editado', detail: '' });
+        writeDb(db);
+      },
+      async finishOrder(id) {
+        needManager();
+        const db = readDb();
+        const o = db.orders.find((x) => x.id === id);
+        if (!o) throw new Error('Pedido não encontrado.');
+        if (o.status !== 'aberto') throw new Error('Este pedido não está em andamento.');
+        const short = [];
+        for (const it of o.items) {
+          const p = db.products.find((x) => x.id === it.productId);
+          if (!p) throw new Error(`O produto "${it.name}" não existe mais. Edite o pedido.`);
+          if ((p.ready || 0) < it.qty) short.push(`${it.name} (precisa ${it.qty}, prontos ${p.ready || 0})`);
+        }
+        if (short.length) throw new Error(`Ainda faltam produtos montados: ${short.join('; ')}.`);
+        for (const it of o.items) db.products.find((x) => x.id === it.productId).ready -= it.qty;
+        o.status = 'concluido';
+        o.updatedAt = new Date().toISOString();
+        o.log.push({ at: o.updatedAt, by: me().name || '', action: 'finalizado', detail: '' });
+        writeDb(db);
+      },
+      async cancelOrder(id, reason) {
+        needManager();
+        if (!String(reason || '').trim()) throw new Error('Informe o motivo do cancelamento.');
+        const db = readDb();
+        const o = db.orders.find((x) => x.id === id);
+        if (!o) throw new Error('Pedido não encontrado.');
+        if (o.status !== 'aberto') throw new Error('Só pedidos em andamento podem ser cancelados.');
+        o.status = 'cancelado';
+        o.updatedAt = new Date().toISOString();
+        o.log.push({ at: o.updatedAt, by: me().name || '', action: 'cancelado', detail: String(reason).trim() });
+        writeDb(db);
+      },
+
       // ---- só no modo demonstração ----
       async reset() {
         const fresh = clone(root.SAMPLE_DATA);
         fresh.counts = [];
         fresh.receipts = [];
         fresh.priceLog = [];
+        fresh.orders = fresh.orders || [];
         writeDb(fresh);
       },
       async exportJson() {
@@ -445,6 +538,7 @@
         d.counts = Array.isArray(d.counts) ? d.counts : [];
         d.receipts = Array.isArray(d.receipts) ? d.receipts : [];
         d.priceLog = Array.isArray(d.priceLog) ? d.priceLog : [];
+        d.orders = Array.isArray(d.orders) ? d.orders : [];
         writeDb(d);
       },
     };

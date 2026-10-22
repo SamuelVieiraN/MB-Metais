@@ -381,6 +381,7 @@
             <div class="cat">${esc(p.category)}${p.code ? ` · ${esc(p.code)}` : ''}</div>
             <h3>${esc(p.name)}</h3>
             <div class="big"><strong>${int(max)}</strong><span class="muted">unidades possíveis</span></div>
+            <div><span class="pill ready">${int(p.ready || 0)} montado${(p.ready || 0) === 1 ? '' : 's'} (pronto${(p.ready || 0) === 1 ? '' : 's'})</span></div>
             <div class="limit">${limitText}</div>
             ${money}
           </div>
@@ -574,6 +575,7 @@
           <div class="body">
             <div class="cat">${esc(p.category)}${p.code ? ` · ${esc(p.code)}` : ''}</div>
             <h3>${esc(p.name)}</h3>
+            <div><span class="pill ready">${int(p.ready || 0)} montado${(p.ready || 0) === 1 ? '' : 's'} (pronto${(p.ready || 0) === 1 ? '' : 's'})</span></div>
             <div><span class="hint">Ficha técnica (por unidade)</span><ul class="bom">${items || '<li class="muted">Nenhuma peça cadastrada.</li>'}</ul></div>
             ${money}
             <div class="actions">
@@ -678,6 +680,10 @@
       <label>Preço de venda (R$)
         <input name="price" type="number" min="0" step="0.01" inputmode="decimal" value="${editing ? editing.price : 0}" />
       </label>
+      ${editing ? `<label>Montados em estoque (prontos)
+        <input name="ready" type="number" min="0" step="1" inputmode="numeric" value="${editing.ready || 0}" />
+        <small class="hint">Normalmente muda sozinho (montagem soma, pedido finalizado baixa). Use para corrigir uma contagem.</small>
+      </label>` : ''}
       <label>Passo a passo da montagem (um passo por linha)
         <textarea name="guide" rows="6" maxlength="3000" placeholder="1. Separe as peças...&#10;2. Passe a fita veda-rosca...">${esc(editing && editing.guide ? editing.guide.join('\n') : '')}</textarea>
       </label>
@@ -708,6 +714,7 @@
         category: String(fd.get('category') || '').trim() || 'Sem categoria',
         price,
         bom,
+        ...(editing && Math.floor(Number(fd.get('ready')) || 0) !== (editing.ready || 0) ? { ready: Math.floor(Number(fd.get('ready')) || 0) } : {}),
         guide: String(fd.get('guide') || '').split('\n').map((x) => x.replace(/^\s*\d+\s*[.)-]\s*/, '').trim()).filter(Boolean),
       };
       await App.commit(() => App.store.saveProducts([item]));
@@ -749,7 +756,7 @@
         const check = L.applyProduction(App.state.parts, product, qty);
         if (!check.ok) return { error: check.error };
         await App.commit(() => App.store.produce(productId, qty));
-        toast(`Montagem registrada: ${int(qty)}× ${product.name}.`);
+        toast(`Montagem registrada: ${int(qty)}× ${product.name}. Agora há ${int((product.ready || 0) + qty)} pronto(s).`);
       },
       'Registrar montagem'
     );

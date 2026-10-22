@@ -131,6 +131,8 @@
       unit_cost: i.unitCost === null || i.unitCost === undefined || i.unitCost === '' || !Number.isFinite(Number(i.unitCost)) ? null : Number(i.unitCost),
     }));
 
+  const orderRows = (items) => items.map((i) => ({ product_id: i.productId, qty: Math.floor(Number(i.qty)) }));
+
   // ---------------- login ----------------
   async function fetchProfile(userId) {
     const rows = await api(`/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&select=id,name,role,active`);
@@ -224,9 +226,9 @@
 
       async load() {
         const manager = isManager();
-        const [parts, products, bom, moves, costs, prices, counts, receipts, plog] = await Promise.all([
+        const [parts, products, bom, moves, costs, prices, counts, receipts, plog, orders] = await Promise.all([
           getAll('parts', 'select=id,code,name,stock,min,photo_url&order=name.asc'),
-          getAll('products', 'select=id,code,name,category,photo_url,guide&order=name.asc'),
+          getAll('products', 'select=id,code,name,category,photo_url,guide,ready&order=name.asc'),
           getAll('bom', 'select=product_id,part_id,qty'),
           api('/rest/v1/rpc/list_movements', { method: 'POST', body: { p_limit: 500 } }),
           manager ? getAll('part_costs', 'select=part_id,cost') : [],
@@ -234,6 +236,7 @@
           api('/rest/v1/rpc/list_counts', { method: 'POST', body: { p_limit: 30 } }),
           api('/rest/v1/rpc/list_receipts', { method: 'POST', body: { p_limit: 100 } }),
           manager ? api('/rest/v1/rpc/list_price_log', { method: 'POST', body: { p_limit: 300 } }) : [],
+          api('/rest/v1/rpc/list_orders', { method: 'POST', body: { p_limit: 100 } }),
         ]);
         const costOf = {};
         costs.forEach((c) => (costOf[c.part_id] = Number(c.cost)));
@@ -259,7 +262,20 @@
             price: priceOf[p.id] || 0,
             photo: p.photo_url || undefined,
             guide: Array.isArray(p.guide) ? p.guide : [],
+            ready: p.ready || 0,
             bom: bomOf[p.id] || [],
+          })),
+          orders: (orders || []).map((o) => ({
+            id: o.id,
+            num: o.num,
+            date: o.created_at,
+            updatedAt: o.updated_at,
+            who: o.user_name,
+            customer: o.customer,
+            ref: o.ref,
+            status: o.status,
+            items: (o.items || []).map((i) => ({ productId: i.product_id, name: i.name, code: i.code || '', qty: i.qty })),
+            log: o.log || [],
           })),
           priceLog: (plog || []).map((l) => ({
             id: l.id,
@@ -384,6 +400,19 @@
       },
       async deleteReceipt(id, reason) {
         await rpc('delete_receipt', { p_id: id, p_reason: reason || '' });
+      },
+
+      async createOrder({ customer, ref, items }) {
+        await rpc('create_order', { p_customer: customer || '', p_ref: ref || '', p_items: orderRows(items) });
+      },
+      async editOrder(id, { customer, ref, items }) {
+        await rpc('edit_order', { p_id: id, p_customer: customer || '', p_ref: ref || '', p_items: orderRows(items) });
+      },
+      async finishOrder(id) {
+        await rpc('finish_order', { p_id: id });
+      },
+      async cancelOrder(id, reason) {
+        await rpc('cancel_order', { p_id: id, p_reason: reason || '' });
       },
 
       async listUsers() {
