@@ -98,4 +98,21 @@ assert.strictEqual(pg.have, 2);
 pg = L.orderProgress(orders[2], undefined, prodsReady, parts);
 assert.strictEqual(pg.complete, true);
 
+// 12) 100 montados para pedidos de 50, 40 e 30: 50, 40 e 10 (mais antigo primeiro)
+const prods100 = products.map((p) => (p.id === 'pr1' ? { ...p, ready: 100 } : p));
+const three = [
+  { id: 'c', status: 'aberto', date: '2026-10-03', items: [{ productId: 'pr1', name: 'A', qty: 30 }] },
+  { id: 'a', status: 'aberto', date: '2026-10-01', items: [{ productId: 'pr1', name: 'A', qty: 50 }] },
+  { id: 'b', status: 'aberto', date: '2026-10-02', items: [{ productId: 'pr1', name: 'A', qty: 40 }] },
+];
+let a3 = L.allocateReady(three, prods100);
+assert.deepStrictEqual([a3.a.pr1, a3.b.pr1, a3.c.pr1], [50, 40, 10]);
+// 13) Reserva manual passa na frente: reservar 30 para o pedido mais novo
+three[0].items[0].reserved = 30;
+a3 = L.allocateReady(three, prods100);
+assert.deepStrictEqual([a3.a.pr1, a3.b.pr1, a3.c.pr1], [50, 20, 30]);
+three[0].items[0].reserved = 999; // reserva maior que o pedido ou que o estoque é limitada
+a3 = L.allocateReady(three, { 0: 0 } && prods100);
+assert.strictEqual(a3.c.pr1, 30);
+
 console.log('Todos os testes passaram.');
