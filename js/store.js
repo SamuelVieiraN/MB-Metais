@@ -11,6 +11,13 @@
   const clone = (o) => JSON.parse(JSON.stringify(o));
   const uuid = () => root.UI.uuid();
 
+  function normProduct(p) {
+    p.ready = Math.max(0, Math.floor(p.ready || 0));
+    if (!Array.isArray(p.photos)) p.photos = p.photo ? [p.photo] : [];
+    p.photo = p.photos[0];
+    if (!p.photo) delete p.photo;
+  }
+
   function readDb() {
     try {
       const raw = localStorage.getItem(KEY);
@@ -23,7 +30,7 @@
           d.priceLog = Array.isArray(d.priceLog) ? d.priceLog : [];
           d.orders = Array.isArray(d.orders) ? d.orders : [];
           d.readyLog = Array.isArray(d.readyLog) ? d.readyLog : [];
-          d.products.forEach((p) => (p.ready = Math.max(0, Math.floor(p.ready || 0))));
+          d.products.forEach(normProduct);
           return d;
         }
       }
@@ -36,6 +43,7 @@
     fresh.priceLog = [];
     fresh.orders = fresh.orders || [];
     fresh.readyLog = [];
+    fresh.products.forEach(normProduct);
     return fresh;
   }
 
@@ -279,6 +287,34 @@
         if (!item) throw new Error('Item não encontrado.');
         if (photo && photo.dataUrl) item.photo = photo.dataUrl;
         else delete item.photo;
+        if (kind === 'product') item.photos = item.photo ? [item.photo] : [];
+        writeDb(db);
+      },
+      /** Produto: acrescenta uma foto (até 6). photo: { dataUrl } */
+      async addPhoto(id, photo) {
+        const db = readDb();
+        const p = db.products.find((x) => x.id === id);
+        if (!p) throw new Error('Produto não encontrado.');
+        if (p.photos.length >= 6) throw new Error('Cada produto aceita até 6 fotos. Remova uma para adicionar outra.');
+        p.photos.push(photo.dataUrl);
+        p.photo = p.photos[0];
+        writeDb(db);
+      },
+      async removePhoto(id, url) {
+        const db = readDb();
+        const p = db.products.find((x) => x.id === id);
+        if (!p) throw new Error('Produto não encontrado.');
+        p.photos = p.photos.filter((u) => u !== url);
+        if (p.photos[0]) p.photo = p.photos[0];
+        else delete p.photo;
+        writeDb(db);
+      },
+      async coverPhoto(id, url) {
+        const db = readDb();
+        const p = db.products.find((x) => x.id === id);
+        if (!p || !p.photos.includes(url)) throw new Error('Foto não encontrada neste produto.');
+        p.photos = [url, ...p.photos.filter((u) => u !== url)];
+        p.photo = p.photos[0];
         writeDb(db);
       },
 
@@ -522,18 +558,40 @@
         o.log.push({ at: o.updatedAt, by: me().name || '', action: 'finalizado', detail: '' });
         writeDb(db);
       },
-      /** Ajuste manual dos montados (gerente): delta positivo = entrou, negativo = saiu. */
-      async adjustReady(productId, delta, note) {
+      /** Ajuste manual dos montados (gerente). kind: 'ajuste' | 'venda' (venda direta, só saída). */
+      async adjustReady(productId, delta, note, kind) {
         needManager();
+        kind = kind === 'venda' ? 'venda' : 'ajuste';
         const db = readDb();
         const p = db.products.find((x) => x.id === productId);
         if (!p) throw new Error('Produto não encontrado.');
         delta = Math.trunc(Number(delta));
         if (!delta) throw new Error('Informe uma quantidade diferente de zero.');
-        if (delta < 0 && !String(note || '').trim()) throw new Error('Informe o motivo da saída.');
+        if (kind === 'venda' && delta > 0) throw new Error('Venda direta só tira produtos do estoque.');
+        if (kind === 'ajuste' && delta < 0 && !String(note || '').trim()) throw new Error('Informe o motivo da saída.');
         if ((p.ready || 0) + delta < 0) throw new Error(`Só há ${p.ready || 0} montado(s) de "${p.name}"; não dá para tirar ${-delta}.`);
         p.ready = (p.ready || 0) + delta;
-        logReady(db, p, delta, 'ajuste', String(note || '').trim());
+        logReady(db, p, delta, kind, String(note || '').trim());
+        writeDb(db);
+      },
+      /** Desmonta produtos montados: as peças voltam ao estoque (gerente). */
+      async unassembleProduct(productId, qty, note) {
+        needManager();
+        const db = readDb();
+        const p = db.products.find((x) => x.id === productId);
+        if (!p) throw new Error('Produto não encontrado.');
+        qty = Math.trunc(Number(qty));
+        if (!(qty > 0)) throw new Error('Informe uma quantidade maior que zero.');
+        if (!p.bom.length) throw new Error('Este produto não tem ficha técnica; use Ajustar para tirá-lo do estoque.');
+        if ((p.ready || 0) < qty) throw new Error(`Só há ${p.ready || 0} montado(s) de "${p.name}"; não dá para desmontar ${qty}.`);
+        for (const b of p.bom) {
+          const part = db.parts.find((x) => x.id === b.partId);
+          if (!part) continue;
+          part.stock += b.qty * qty;
+          logMove(db, part, 'entrada', b.qty * qty, `Desmontagem: ${qty}× ${p.name}`, { origin: 'desmontagem' });
+        }
+        p.ready -= qty;
+        logReady(db, p, -qty, 'desmontagem', String(note || '').trim());
         writeDb(db);
       },
       /** Reserva montados para um item do pedido (total reservado; 0 libera). */
@@ -577,6 +635,7 @@
         fresh.priceLog = [];
         fresh.orders = fresh.orders || [];
         fresh.readyLog = [];
+        fresh.products.forEach(normProduct);
         writeDb(fresh);
       },
       async exportJson() {
@@ -590,6 +649,7 @@
         d.priceLog = Array.isArray(d.priceLog) ? d.priceLog : [];
         d.orders = Array.isArray(d.orders) ? d.orders : [];
         d.readyLog = Array.isArray(d.readyLog) ? d.readyLog : [];
+        d.products.forEach(normProduct);
         writeDb(d);
       },
     };

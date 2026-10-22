@@ -403,6 +403,11 @@ window.SAMPLE_DATA = {
    "category": "Torneiras básicas",
    "price": 69.9,
    "photo": "img/demo/t_lav_baixa.jpg",
+   "photos": [
+    "img/demo/t_lav_baixa.jpg",
+    "img/demo/t_lav_baixa_detalhe.jpg",
+    "img/demo/t_lav_baixa_medidas.jpg"
+   ],
    "guide": [
     "Separe todas as peças da lista e confira as quantidades. Veja se o corpo não tem rebarba ou risco na parte cromada.",
     "Passe a fita veda-rosca na rosca do corpo (2 a 3 voltas no sentido do aperto).",
@@ -464,6 +469,11 @@ window.SAMPLE_DATA = {
    "category": "Torneiras básicas",
    "price": 84.9,
    "photo": "img/demo/t_mesa.jpg",
+   "photos": [
+    "img/demo/t_mesa.jpg",
+    "img/demo/t_mesa_detalhe.jpg",
+    "img/demo/t_mesa_medidas.jpg"
+   ],
    "guide": [
     "Separe todas as peças da lista e confira as quantidades. Veja se o corpo não tem rebarba ou risco na parte cromada.",
     "Passe a fita veda-rosca na rosca do corpo (2 a 3 voltas no sentido do aperto).",
@@ -525,6 +535,11 @@ window.SAMPLE_DATA = {
    "category": "Torneiras básicas",
    "price": 39.9,
    "photo": "img/demo/t_jardim.jpg",
+   "photos": [
+    "img/demo/t_jardim.jpg",
+    "img/demo/t_jardim_detalhe.jpg",
+    "img/demo/t_jardim_medidas.jpg"
+   ],
    "guide": [
     "Separe as peças e confira o corpo (rosca de 3/4\" sem danos).",
     "Passe a fita veda-rosca na rosca de entrada.",
@@ -576,6 +591,11 @@ window.SAMPLE_DATA = {
    "category": "Torneiras básicas",
    "price": 44.9,
    "photo": "img/demo/t_tanque.jpg",
+   "photos": [
+    "img/demo/t_tanque.jpg",
+    "img/demo/t_tanque_detalhe.jpg",
+    "img/demo/t_tanque_medidas.jpg"
+   ],
    "guide": [
     "Separe todas as peças da lista e confira as quantidades. Veja se o corpo não tem rebarba ou risco na parte cromada.",
     "Passe a fita veda-rosca na rosca do corpo (2 a 3 voltas no sentido do aperto).",
@@ -633,6 +653,11 @@ window.SAMPLE_DATA = {
    "category": "Torneiras básicas",
    "price": 109.9,
    "photo": "img/demo/t_cozinha.jpg",
+   "photos": [
+    "img/demo/t_cozinha.jpg",
+    "img/demo/t_cozinha_detalhe.jpg",
+    "img/demo/t_cozinha_medidas.jpg"
+   ],
    "guide": [
     "Separe as peças e confira o corpo e a bica (móvel ou gourmet).",
     "Passe a fita veda-rosca e rosqueie os flexíveis de ligação.",
@@ -697,6 +722,11 @@ window.SAMPLE_DATA = {
    "category": "Torneiras alto padrão",
    "price": 389.9,
    "photo": "img/demo/a_mono_croma.jpg",
+   "photos": [
+    "img/demo/a_mono_croma.jpg",
+    "img/demo/a_mono_croma_detalhe.jpg",
+    "img/demo/a_mono_croma_medidas.jpg"
+   ],
    "guide": [
     "Separe as peças da lista e confira o corpo forjado (sem poros nem riscos).",
     "Passe a fita veda-rosca nas roscas de entrada e rosqueie os dois flexíveis de ligação.",
@@ -758,6 +788,11 @@ window.SAMPLE_DATA = {
    "category": "Torneiras alto padrão",
    "price": 459.9,
    "photo": "img/demo/a_mono_preto.jpg",
+   "photos": [
+    "img/demo/a_mono_preto.jpg",
+    "img/demo/a_mono_preto_detalhe.jpg",
+    "img/demo/a_mono_preto_medidas.jpg"
+   ],
    "guide": [
     "Separe as peças da lista e confira o corpo forjado (sem poros nem riscos).",
     "Passe a fita veda-rosca nas roscas de entrada e rosqueie os dois flexíveis de ligação.",
@@ -819,6 +854,11 @@ window.SAMPLE_DATA = {
    "category": "Torneiras alto padrão",
    "price": 569.9,
    "photo": "img/demo/a_mono_dourado.jpg",
+   "photos": [
+    "img/demo/a_mono_dourado.jpg",
+    "img/demo/a_mono_dourado_detalhe.jpg",
+    "img/demo/a_mono_dourado_medidas.jpg"
+   ],
    "guide": [
     "Separe as peças da lista e confira o corpo forjado (sem poros nem riscos).",
     "Passe a fita veda-rosca nas roscas de entrada e rosqueie os dois flexíveis de ligação.",
@@ -880,6 +920,11 @@ window.SAMPLE_DATA = {
    "category": "Torneiras alto padrão",
    "price": 429.9,
    "photo": "img/demo/a_parede_inox.jpg",
+   "photos": [
+    "img/demo/a_parede_inox.jpg",
+    "img/demo/a_parede_inox_detalhe.jpg",
+    "img/demo/a_parede_inox_medidas.jpg"
+   ],
    "guide": [
     "Separe as peças e confira o corpo de parede e o kit de acabamento.",
     "Passe a fita veda-rosca na entrada e nas conexões.",
@@ -940,6 +985,11 @@ window.SAMPLE_DATA = {
    "category": "Torneiras alto padrão",
    "price": 549.9,
    "photo": "img/demo/a_cozinha_gourmet.jpg",
+   "photos": [
+    "img/demo/a_cozinha_gourmet.jpg",
+    "img/demo/a_cozinha_gourmet_detalhe.jpg",
+    "img/demo/a_cozinha_gourmet_medidas.jpg"
+   ],
    "guide": [
     "Separe as peças e confira o corpo e a bica (móvel ou gourmet).",
     "Passe a fita veda-rosca e rosqueie os flexíveis de ligação.",
@@ -1004,6 +1054,11 @@ window.SAMPLE_DATA = {
    "category": "Duchas higiênicas",
    "price": 129.9,
    "photo": "img/demo/d_hig_basica.jpg",
+   "photos": [
+    "img/demo/d_hig_basica.jpg",
+    "img/demo/d_hig_basica_detalhe.jpg",
+    "img/demo/d_hig_basica_medidas.jpg"
+   ],
    "guide": [
     "Separe as peças e confira o corpo da ducha e o registro.",
     "Passe a fita veda-rosca no registro e rosqueie no corpo.",
@@ -1071,6 +1126,11 @@ window.SAMPLE_DATA = {
    "category": "Duchas higiênicas",
    "price": 249.9,
    "photo": "img/demo/d_hig_premium.jpg",
+   "photos": [
+    "img/demo/d_hig_premium.jpg",
+    "img/demo/d_hig_premium_detalhe.jpg",
+    "img/demo/d_hig_premium_medidas.jpg"
+   ],
    "guide": [
     "Separe as peças e confira o corpo da ducha e o registro.",
     "Passe a fita veda-rosca no registro e rosqueie no corpo.",
@@ -1138,6 +1198,11 @@ window.SAMPLE_DATA = {
    "category": "Chuveiros básicos",
    "price": 49.9,
    "photo": "img/demo/c_eletrico.jpg",
+   "photos": [
+    "img/demo/c_eletrico.jpg",
+    "img/demo/c_eletrico_detalhe.jpg",
+    "img/demo/c_eletrico_medidas.jpg"
+   ],
    "guide": [
     "Separe as peças e confira a carcaça (sem trincas) e a resistência.",
     "Monte a resistência na carcaça, alinhando os terminais, e encaixe a chave seletora de 4 temperaturas.",
@@ -1201,6 +1266,11 @@ window.SAMPLE_DATA = {
    "category": "Chuveiros básicos",
    "price": 59.9,
    "photo": "img/demo/c_ducha_simples.jpg",
+   "photos": [
+    "img/demo/c_ducha_simples.jpg",
+    "img/demo/c_ducha_simples_detalhe.jpg",
+    "img/demo/c_ducha_simples_medidas.jpg"
+   ],
    "guide": [
     "Separe as peças e confira o braço e a articulação.",
     "Passe a fita veda-rosca na rosca do braço.",
@@ -1256,6 +1326,11 @@ window.SAMPLE_DATA = {
    "category": "Chuveiros médio padrão",
    "price": 189.9,
    "photo": "img/demo/c_medio_desviador.jpg",
+   "photos": [
+    "img/demo/c_medio_desviador.jpg",
+    "img/demo/c_medio_desviador_detalhe.jpg",
+    "img/demo/c_medio_desviador_medidas.jpg"
+   ],
    "guide": [
     "Separe as peças e confira o braço e a articulação.",
     "Passe a fita veda-rosca na rosca do braço.",
@@ -1323,6 +1398,11 @@ window.SAMPLE_DATA = {
    "category": "Chuveiros alto padrão",
    "price": 689.9,
    "photo": "img/demo/c_parede_inox.jpg",
+   "photos": [
+    "img/demo/c_parede_inox.jpg",
+    "img/demo/c_parede_inox_detalhe.jpg",
+    "img/demo/c_parede_inox_medidas.jpg"
+   ],
    "guide": [
     "Separe as peças e confira o disco (ou quadrado) e o braço: sem riscos nem amassados.",
     "Passe a fita veda-rosca nas conexões e rosqueie o braço no disco.",
@@ -1391,6 +1471,11 @@ window.SAMPLE_DATA = {
    "category": "Chuveiros alto padrão",
    "price": 899.9,
    "photo": "img/demo/c_teto_preto.jpg",
+   "photos": [
+    "img/demo/c_teto_preto.jpg",
+    "img/demo/c_teto_preto_detalhe.jpg",
+    "img/demo/c_teto_preto_medidas.jpg"
+   ],
    "guide": [
     "Separe as peças e confira o disco (ou quadrado) e o braço: sem riscos nem amassados.",
     "Passe a fita veda-rosca nas conexões e rosqueie o braço no disco.",

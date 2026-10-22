@@ -91,6 +91,34 @@
     </details>`;
   }
 
+  /** Faixa de consulta rápida: os 5 pedidos mais recentes (qualquer situação). */
+  function recentHtml(orders) {
+    const last = [...orders].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
+    if (!last.length) return '';
+    const manager = App.isManager();
+    const rows = last
+      .map((o) => {
+        const end = (o.log || []).filter((e) => e.action === 'finalizado' || e.action === 'cancelado').pop();
+        const st = STATUS[o.status] || STATUS.aberto;
+        const what = o.items.map((i) => `${int(i.qty)}× ${esc(i.name)}`).join(', ');
+        return `<tr>
+          <td class="num"><b>#${o.num}</b>${o.ref ? `<br><small class="muted">${esc(o.ref)}</small>` : ''}</td>
+          <td>${what}${manager && o.customer ? `<br><small class="muted">${esc(o.customer)}</small>` : ''}</td>
+          <td class="num">${dt(o.date)}</td>
+          <td><span class="pill ${st.pill}">${st.label}</span></td>
+          <td class="num">${o.status !== 'aberto' && end ? dt(end.at) : '–'}</td>
+        </tr>`;
+      })
+      .join('');
+    return `<details class="recent" open>
+      <summary><b>Últimos 5 pedidos</b> <span class="muted">consulta rápida: o que foi pedido, situação e datas</span></summary>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Pedido</th><th>O que foi pedido</th><th>Pedido em</th><th>Situação</th><th>Finalizado em</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+    </details>`;
+  }
+
   function view() {
     const orders = App.state.orders || [];
     const alloc = L.allocateReady(orders, App.state.products);
@@ -113,6 +141,7 @@
         <div class="kpi"><div class="label">Em andamento</div><div class="value">${int(openN)}</div></div>
         <div class="kpi ${readyN ? 'ok' : ''}"><div class="label">Prontos para finalizar</div><div class="value">${int(readyN)}</div></div>
       </div>
+      ${recentHtml(orders)}
       <div class="chips" style="margin:12px 0">${chips}</div>
       <div id="or-list">${list.length ? list.map((o) => cardHtml(o, alloc)).join('') : '<p class="empty">Nenhum pedido por aqui.</p>'}</div>`;
   }
@@ -198,7 +227,8 @@
     },
     'go-tab': (id) => {
       App.tab = id;
-      App.render();
+      App.render(true);
+      window.scrollTo({ top: 0 });
     },
     'or-finish': async (id) => {
       const o = find(id);

@@ -140,7 +140,7 @@
         manager && App.store.kind === 'supabase'
           ? `<div class="card sheet-card" style="margin-top:16px">
               <h2>Estoque fictício para demonstração</h2>
-              <p class="muted">Carrega 49 peças, 17 produtos (torneiras, duchas e chuveiros) com ficha técnica, guia de montagem, foto do produto montado, alguns produtos já montados e 3 pedidos de exemplo. Serve para mostrar o sistema funcionando. Depois, remova antes de lançar o estoque real: <b>só sai o que foi carregado por aqui</b>.</p>
+              <p class="muted">Carrega 49 peças, 17 produtos (torneiras, duchas e chuveiros) com ficha técnica, guia de montagem, 3 fotos por produto (montado, detalhe e medidas), alguns produtos já montados e 3 pedidos de exemplo. Serve para mostrar o sistema funcionando. Depois, remova antes de lançar o estoque real: <b>só sai o que foi carregado por aqui</b>.</p>
               <div class="actions"><button class="btn" data-action="demo-load">Carregar estoque fictício</button>
               <button class="btn danger" data-action="demo-remove">Remover estoque fictício</button></div>
             </div>`
@@ -236,12 +236,15 @@
         await App.store.createOrder({ customer: o.customer, ref: o.ref, items: o.items.map((i) => ({ productId: demoId(i.productId), qty: i.qty })) });
       }
       for (const p of D.products) {
-        if (!p.photo) continue;
-        try {
-          const res = await fetch(p.photo);
-          if (res.ok) await App.store.setPhoto('product', demoId(p.id), { blob: await res.blob() }, null);
-        } catch (e) {
-          /* sem a foto, o produto continua válido */
+        const have = ((App.state.products.find((x) => x.id === demoId(p.id)) || {}).photos || []).length;
+        if (have) continue; // já tem foto (carregamento repetido)
+        for (const url of p.photos || (p.photo ? [p.photo] : [])) {
+          try {
+            const res = await fetch(url);
+            if (res.ok) await App.store.addPhoto(demoId(p.id), { blob: await res.blob() });
+          } catch (e) {
+            /* sem a foto, o produto continua válido */
+          }
         }
       }
       await App.refresh();

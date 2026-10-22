@@ -228,7 +228,7 @@
         const manager = isManager();
         const [parts, products, bom, moves, costs, prices, counts, receipts, plog, orders, rlog] = await Promise.all([
           getAll('parts', 'select=id,code,name,stock,min,photo_url&order=name.asc'),
-          getAll('products', 'select=id,code,name,category,photo_url,guide,ready&order=name.asc'),
+          getAll('products', 'select=id,code,name,category,photo_url,photos,guide,ready&order=name.asc'),
           getAll('bom', 'select=product_id,part_id,qty'),
           api('/rest/v1/rpc/list_movements', { method: 'POST', body: { p_limit: 500 } }),
           manager ? getAll('part_costs', 'select=part_id,cost') : [],
@@ -261,6 +261,7 @@
             name: p.name,
             category: p.category,
             price: priceOf[p.id] || 0,
+            photos: Array.isArray(p.photos) && p.photos.length ? p.photos : p.photo_url ? [p.photo_url] : [],
             photo: p.photo_url || undefined,
             guide: Array.isArray(p.guide) ? p.guide : [],
             ready: p.ready || 0,
@@ -378,6 +379,40 @@
         }
       },
 
+      /** Produto: acrescenta uma foto (até 6). photo: { blob } */
+      async addPhoto(id, photo) {
+        const path = `products/${id}-${Date.now()}.jpg`;
+        await api(`/storage/v1/object/${BUCKET}/${path}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'false' },
+          body: photo.blob,
+        });
+        try {
+          await rpc('add_product_photo', { p_id: id, p_url: publicUrl(path) });
+        } catch (e) {
+          try {
+            await api(`/storage/v1/object/${BUCKET}/${path}`, { method: 'DELETE' });
+          } catch (e2) {
+            /* sobra um arquivo; não atrapalha */
+          }
+          throw e;
+        }
+      },
+      async removePhoto(id, url) {
+        await rpc('remove_product_photo', { p_id: id, p_url: url });
+        const old = pathFromUrl(url);
+        if (old) {
+          try {
+            await api(`/storage/v1/object/${BUCKET}/${old}`, { method: 'DELETE' });
+          } catch (e) {
+            /* sobra um arquivo no armazenamento; não atrapalha */
+          }
+        }
+      },
+      async coverPhoto(id, url) {
+        await rpc('cover_product_photo', { p_id: id, p_url: url });
+      },
+
       async reverse(id) {
         await rpc('reverse_movement', { p_id: id });
       },
@@ -413,8 +448,11 @@
       async finishOrder(id) {
         await rpc('finish_order', { p_id: id });
       },
-      async adjustReady(productId, delta, note) {
-        await rpc('adjust_ready', { p_product: productId, p_delta: Math.trunc(Number(delta)), p_note: note || '' });
+      async adjustReady(productId, delta, note, kind) {
+        await rpc('adjust_ready', { p_product: productId, p_delta: Math.trunc(Number(delta)), p_note: note || '', p_kind: kind === 'venda' ? 'venda' : 'ajuste' });
+      },
+      async unassembleProduct(productId, qty, note) {
+        await rpc('unassemble_product', { p_product: productId, p_qty: Math.trunc(Number(qty)), p_note: note || '' });
       },
       async reserveOrderItem(orderId, productId, qty) {
         await rpc('reserve_order_item', { p_order: orderId, p_product: productId, p_qty: Math.trunc(Number(qty)) });

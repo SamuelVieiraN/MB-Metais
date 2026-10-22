@@ -15,7 +15,6 @@
   App.mtFilter = App.mtFilter || 'com';
   App.mtSearch = App.mtSearch || '';
 
-  const KIND = { montagem: 'Montagem', ajuste: 'Ajuste', pedido: 'Pedido finalizado' };
   const dt = (iso) => new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 
   function data() {
@@ -62,32 +61,11 @@
           <td class="right nowrap">
             <button class="btn small" data-action="mt-guide" data-id="${r.p.id}">Guia</button>
             ${manager ? `<button class="btn small" data-action="mt-assign" data-id="${r.p.id}" ${r.needs.length && r.ready > 0 ? '' : 'disabled'} title="${r.needs.length ? 'Reservar montados para um pedido' : 'Nenhum pedido em andamento precisa deste produto'}">Acionar a pedido</button>
-            <button class="btn small" data-action="mt-adjust" data-id="${r.p.id}">Ajustar</button>` : ''}
+            <button class="btn small" data-action="mt-adjust" data-id="${r.p.id}">Movimentar</button>` : ''}
           </td>
         </tr>`;
       })
       .join('');
-  }
-
-  function historyHtml() {
-    const manager = App.isManager();
-    const log = (App.state.readyLog || []).slice(0, 30);
-    if (!log.length) return '<p class="empty">Nada registrado ainda.</p>';
-    const rows = log
-      .map(
-        (l) => `<tr>
-        <td>${dt(l.date)}</td>
-        <td>${esc(l.name)}</td>
-        <td><span class="pill ${l.kind === 'pedido' ? 'info' : l.kind === 'ajuste' ? 'warn' : 'ok'}">${KIND[l.kind] || l.kind}</span></td>
-        <td class="right num ${l.delta > 0 ? 'pos' : 'neg'}">${l.delta > 0 ? '+' : ''}${int(l.delta)}</td>
-        <td>${esc(l.who || '')}</td>
-        ${manager ? `<td>${esc(l.note || '')}</td>` : ''}
-      </tr>`
-      )
-      .join('');
-    return `<div class="table-wrap"><table>
-      <thead><tr><th>Quando</th><th>Produto</th><th>Tipo</th><th class="right">Quantidade</th><th>Quem</th>${manager ? '<th>Observação</th>' : ''}</tr></thead>
-      <tbody>${rows}</tbody></table></div>`;
   }
 
   function view() {
@@ -118,38 +96,51 @@
         <thead><tr><th>Produto</th><th class="right">Montados</th><th class="right">Em pedidos</th><th class="right">Livres</th><th>Pedidos que usam (recebem/precisam)</th><th></th></tr></thead>
         <tbody id="mt-body">${rowsHtml()}</tbody>
       </table></div>
-      <h2 style="margin-top:22px">Movimentações de montados</h2>
-      ${historyHtml()}`;
+      <p class="hint" style="margin-top:14px">O registro de tudo que entrou e saiu está na aba <button class="btn small" data-action="go-tab" data-id="movimentacoes">Movimentações</button>.</p>`;
   }
 
-  // ---------------- ajustar ----------------
+  // ---------------- ajustar / vender / desmontar ----------------
   function openAdjust(id) {
     const p = App.state.products.find((x) => x.id === id);
     if (!p || !App.isManager()) return;
     openModal(
-      `Ajustar montados · ${p.name}`,
-      `<p class="muted">Agora há <b>${int(p.ready || 0)}</b> montado(s). Use para registrar produtos que já existem montados (sem descontar peças) ou para tirar do estoque.</p>
+      `Movimentar montados · ${p.name}`,
+      `<p class="muted">Agora há <b>${int(p.ready || 0)}</b> montado(s).</p>
        <label>O que aconteceu
-         <select name="dir">
+         <select name="dir" id="mt-dir">
            <option value="in">Entraram (já estavam montados / montados a mais)</option>
-           <option value="out">Saíram (venda direta, perda, correção)</option>
+           <option value="venda">Venda direta (saiu sem pedido)</option>
+           <option value="desmontar">Desmontar (as peças voltam ao estoque)</option>
+           <option value="perda">Perda ou correção</option>
          </select>
        </label>
        <label>Quantidade
          <input name="qty" type="number" min="1" step="1" inputmode="numeric" value="1" required />
        </label>
-       <label>Observação (obrigatória se saíram)
+       <label>Observação <span class="hint" id="mt-note-hint">(opcional)</span>
          <input name="note" type="text" maxlength="120" placeholder="Ex.: sobraram do pedido 101" />
        </label>
-       <p class="hint">As peças <b>não</b> são descontadas por aqui: o ajuste só muda a contagem de montados. Para montar a partir das peças, use Registrar montagem em Produtos.</p>`,
+       <p class="hint" id="mt-dir-hint">Só muda a contagem de montados; as peças não são descontadas.</p>`,
       async (fd) => {
         const qty = Math.floor(Number(fd.get('qty')));
         if (!(qty > 0)) return { error: 'Informe uma quantidade maior que zero.' };
-        const delta = fd.get('dir') === 'out' ? -qty : qty;
-        await App.commit(() => App.store.adjustReady(id, delta, String(fd.get('note') || '')));
-        toast(delta > 0 ? `${int(qty)} montado(s) adicionados.` : `${int(qty)} montado(s) retirados.`);
+        const dir = fd.get('dir');
+        const note = String(fd.get('note') || '');
+        if (dir === 'desmontar') {
+          await App.commit(() => App.store.unassembleProduct(id, qty, note));
+          toast(`${int(qty)} desmontado(s): as peças voltaram ao estoque.`);
+        } else if (dir === 'venda') {
+          await App.commit(() => App.store.adjustReady(id, -qty, note, 'venda'));
+          toast(`Venda direta de ${int(qty)} registrada.`);
+        } else if (dir === 'perda') {
+          await App.commit(() => App.store.adjustReady(id, -qty, note, 'ajuste'));
+          toast(`${int(qty)} montado(s) retirados.`);
+        } else {
+          await App.commit(() => App.store.adjustReady(id, qty, note, 'ajuste'));
+          toast(`${int(qty)} montado(s) adicionados.`);
+        }
       },
-      'Salvar ajuste'
+      'Salvar'
     );
   }
 
@@ -194,7 +185,18 @@
     );
   }
 
+  const DIR_HINT = {
+    in: 'Só muda a contagem de montados; as peças não são descontadas.',
+    venda: 'Venda sem pedido: só tira da contagem de montados.',
+    desmontar: 'As peças da ficha técnica voltam ao estoque e os montados diminuem.',
+    perda: 'Informe o motivo nas observações (obrigatório).',
+  };
   document.addEventListener('change', (e) => {
+    if (e.target.id === 'mt-dir') {
+      $('#mt-dir-hint').textContent = DIR_HINT[e.target.value];
+      $('#mt-note-hint').textContent = e.target.value === 'perda' ? '(obrigatória)' : '(opcional)';
+      return;
+    }
     if (e.target.id !== 'mt-order') return;
     const opt = e.target.selectedOptions[0];
     $('#mt-qty').value = opt.dataset.max;

@@ -18,7 +18,7 @@
     user: null,
     state: { parts: [], products: [], movements: [] },
     loadError: null,
-    tab: 'mostruario',
+    tab: 'hoje',
     filter: '',
     partFilter: '',
     prodFilter: '',
@@ -123,7 +123,7 @@
 
   async function enter(user) {
     App.user = user;
-    App.tab = 'mostruario';
+    App.tab = 'hoje';
     App.filter = App.partFilter = App.category = App.prodFilter = '';
     App.mtSearch = '';
     App.simPlan = {};
@@ -179,17 +179,49 @@
   const visibleTabs = () =>
     App.tabs.filter((t) => (!t.managerOnly || App.isManager()) && (!t.remoteOnly || App.isRemote()));
 
+  // Menu em dois níveis: grupos no topo; dentro do grupo ativo, as telas dele.
+  const GROUPS = [
+    { id: 'hoje', label: 'Hoje', tabs: ['hoje'] },
+    { id: 'mostruario', label: 'Mostruário', tabs: ['mostruario'] },
+    { id: 'estoque', label: 'Estoque', tabs: ['pecas', 'recebimento', 'reposicao', 'conferencia'] },
+    { id: 'producao', label: 'Produção', tabs: ['produtos', 'montados', 'simulacao'] },
+    { id: 'pedidos', label: 'Pedidos', tabs: ['pedidos'] },
+    { id: 'movimentacoes', label: 'Movimentações', tabs: ['movimentacoes'] },
+    { id: 'gerencia', label: 'Gerência', tabs: ['financeiro', 'planilhas', 'usuarios'], lock: true },
+  ];
+  App.groups = () => {
+    const vis = visibleTabs();
+    const used = new Set();
+    const out = GROUPS.map((g) => {
+      const tabs = g.tabs.map((id) => vis.find((t) => t.id === id)).filter(Boolean);
+      tabs.forEach((t) => used.add(t.id));
+      return { ...g, tabs };
+    }).filter((g) => g.tabs.length);
+    vis.filter((t) => !used.has(t.id)).forEach((t) => out.push({ id: t.id, label: t.label, tabs: [t] }));
+    return out;
+  };
+  App.lastInGroup = App.lastInGroup || {};
+
   function renderTabs() {
     const tabs = visibleTabs();
-    if (!tabs.some((t) => t.id === App.tab)) App.tab = 'mostruario';
-    $('#tabs').innerHTML = tabs
-      .map(
-        (t) =>
-          `<button class="tab" data-tab="${t.id}" ${t.id === App.tab ? 'aria-current="page"' : ''}>${t.label}${
-            t.managerOnly ? '<span class="lock">gerência</span>' : ''
-          }</button>`
-      )
-      .join('');
+    if (!tabs.some((t) => t.id === App.tab)) App.tab = 'hoje';
+    const groups = App.groups();
+    const cur = groups.find((g) => g.tabs.some((t) => t.id === App.tab)) || groups[0];
+    App.lastInGroup[cur.id] = App.tab;
+    $('#tabs').innerHTML =
+      '<div class="tabs-row">' +
+      groups
+        .map((g) => {
+          const target = g.id === cur.id ? App.tab : App.lastInGroup[g.id] || g.tabs[0].id;
+          return `<button class="tab" data-tab="${target}" data-group="${g.id}" ${g.id === cur.id ? 'aria-current="page"' : ''}>${g.label}</button>`;
+        })
+        .join('') +
+      '</div>' +
+      (cur.tabs.length > 1
+        ? `<div class="subtabs">${cur.tabs
+            .map((t) => `<button class="subtab" data-tab="${t.id}" ${t.id === App.tab ? 'aria-current="page"' : ''}>${t.label}</button>`)
+            .join('')}</div>`
+        : '');
   }
 
   App.render = function (animate) {
@@ -247,16 +279,48 @@
   //  Fotos
   // =====================================================================
   let photoTarget = null;
+  App.photoIdx = App.photoIdx || {};
+
+  /** Fotos de um item: produto pode ter várias (a primeira é a principal); peça tem uma só. */
+  const photosOf = (kind, item) => (kind === 'product' ? item.photos || (item.photo ? [item.photo] : []) : item.photo ? [item.photo] : []);
+  const idxOf = (kind, item) => Math.min(App.photoIdx[item.id] || 0, Math.max(photosOf(kind, item).length - 1, 0));
+
+  function dotsHtml(n, i) {
+    return n > 1 ? `<span class="dots" aria-hidden="true">${Array.from({ length: n }, (_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</span>` : '';
+  }
 
   function media(kind, item, badge) {
-    const has = !!item.photo;
-    return `<div class="media ${has ? 'has' : ''}">
-      <button type="button" class="media-main" data-action="view-photo" data-kind="${kind}" data-id="${item.id}" aria-label="${has ? 'Ampliar foto de ' : 'Adicionar foto de '}${esc(item.name)}">
-        ${has ? `<img src="${esc(item.photo)}" alt="${esc(item.name)}" loading="lazy" />` : `<span class="ph">${icons.image}<small>Adicionar foto</small></span>`}
+    const list = photosOf(kind, item);
+    const has = list.length > 0;
+    const i = idxOf(kind, item);
+    const multi = list.length > 1;
+    return `<div class="media ${has ? 'has' : ''} ${multi ? 'carousel' : ''}">
+      <button type="button" class="media-main" data-action="photo-click" data-kind="${kind}" data-id="${item.id}" aria-label="${has ? (multi ? `Fotos de ${esc(item.name)}: toque na direita ou na esquerda para trocar, no centro para ampliar` : 'Ampliar foto de ') + (multi ? '' : esc(item.name)) : 'Adicionar foto de ' + esc(item.name)}">
+        ${has ? `<img src="${esc(list[i])}" alt="${esc(item.name)}" loading="lazy" />` : `<span class="ph">${icons.image}<small>Adicionar foto</small></span>`}
+        ${multi ? '<span class="car-arrow l" aria-hidden="true">‹</span><span class="car-arrow r" aria-hidden="true">›</span>' : ''}
       </button>
+      ${dotsHtml(list.length, i)}
       ${badge || ''}
-      <button type="button" class="media-btn" data-action="pick-photo" data-kind="${kind}" data-id="${item.id}" title="${has ? 'Trocar foto' : 'Adicionar foto'}" aria-label="${has ? 'Trocar foto' : 'Adicionar foto'}">${icons.camera}</button>
+      <button type="button" class="media-btn" data-action="pick-photo" data-kind="${kind}" data-id="${item.id}" title="${kind === 'product' ? 'Adicionar foto' : has ? 'Trocar foto' : 'Adicionar foto'}" aria-label="${kind === 'product' ? 'Adicionar foto' : has ? 'Trocar foto' : 'Adicionar foto'}">${icons.camera}</button>
     </div>`;
+  }
+
+  /** Passa para a foto seguinte/anterior (volta ao começo no fim) sem redesenhar a tela. */
+  function stepPhoto(kind, id, delta, box) {
+    const item = findItem(kind, id);
+    if (!item) return;
+    const list = photosOf(kind, item);
+    if (list.length < 2) return;
+    const i = (idxOf(kind, item) + delta + list.length) % list.length;
+    App.photoIdx[id] = i;
+    const root_ = box || document;
+    $$(`.media-main[data-id="${id}"]`, root_).forEach((btn) => {
+      const wrap = btn.closest('.media');
+      const img = $('img', btn);
+      if (img) img.src = list[i];
+      const dots = $('.dots', wrap);
+      if (dots) dots.outerHTML = dotsHtml(list.length, i);
+    });
   }
 
   function thumb(kind, item) {
@@ -274,8 +338,15 @@
     try {
       const local = App.store.kind === 'local';
       const prep = await root.Images.prepare(file, local ? { max: 720, quality: 0.72 } : undefined);
-      await App.store.setPhoto(t.kind, t.id, local ? { dataUrl: prep.dataUrl } : { blob: prep.blob }, item && item.photo);
-      await App.refresh();
+      const payload = local ? { dataUrl: prep.dataUrl } : { blob: prep.blob };
+      if (t.kind === 'product') {
+        await App.store.addPhoto(t.id, payload);
+        await App.refresh();
+        App.photoIdx[t.id] = Math.max(0, photosOf('product', findItem('product', t.id)).length - 1);
+      } else {
+        await App.store.setPhoto(t.kind, t.id, payload, item && item.photo);
+        await App.refresh();
+      }
       App.render();
       toast('Foto salva.');
     } catch (e) {
@@ -286,23 +357,38 @@
   function openLightbox(kind, id) {
     const item = findItem(kind, id);
     if (!item) return;
-    if (!item.photo) {
+    if (!photosOf(kind, item).length) {
       photoTarget = { kind, id };
       $('#photo-input').click();
       return;
     }
+    renderLightbox(kind, id);
+    $('#lightbox').showModal();
+  }
+
+  function renderLightbox(kind, id) {
+    const item = findItem(kind, id);
     const dlg = $('#lightbox');
+    if (!item) return dlg.close();
+    const list = photosOf(kind, item);
+    if (!list.length) return dlg.close();
+    const i = idxOf(kind, item);
+    const multi = list.length > 1;
     dlg.innerHTML = `
       <figure>
-        <img src="${esc(item.photo)}" alt="${esc(item.name)}" />
-        <figcaption>${esc(item.name)}</figcaption>
+        <div class="lb-stage" data-kind="${kind}" data-id="${id}">
+          <img src="${esc(list[i])}" alt="${esc(item.name)}" />
+          ${multi ? `<button type="button" class="lb-nav l" data-action="lb-prev" data-kind="${kind}" data-id="${id}" aria-label="Foto anterior">‹</button><button type="button" class="lb-nav r" data-action="lb-next" data-kind="${kind}" data-id="${id}" aria-label="Próxima foto">›</button>` : ''}
+        </div>
+        <figcaption>${esc(item.name)}${multi ? ` <span class="muted">· foto ${i + 1} de ${list.length}${i === 0 ? ' (principal)' : ''}</span>` : ''}</figcaption>
+        ${multi ? `<div class="lb-thumbs">${list.map((u, k) => `<button type="button" class="${k === i ? 'on' : ''}" data-action="lb-go" data-kind="${kind}" data-id="${id}" data-i="${k}" aria-label="Ver foto ${k + 1}"><img src="${esc(u)}" alt="" /></button>`).join('')}</div>` : ''}
       </figure>
       <div class="modal-actions">
-        <button class="btn danger" data-action="photo-remove" data-kind="${kind}" data-id="${id}">Remover foto</button>
-        <button class="btn" data-action="pick-photo" data-kind="${kind}" data-id="${id}" data-close="lightbox">Trocar foto</button>
+        <button class="btn danger" data-action="photo-remove" data-kind="${kind}" data-id="${id}">Remover ${kind === 'product' ? 'esta foto' : 'foto'}</button>
+        ${kind === 'product' && i > 0 ? `<button class="btn" data-action="photo-cover" data-kind="${kind}" data-id="${id}">Tornar principal</button>` : ''}
+        <button class="btn" data-action="pick-photo" data-kind="${kind}" data-id="${id}" data-close="lightbox">${kind === 'product' ? 'Adicionar foto' : 'Trocar foto'}</button>
         <button class="btn primary" data-action="close-lightbox">Fechar</button>
       </div>`;
-    dlg.showModal();
   }
 
   // =====================================================================
@@ -883,14 +969,14 @@
     const mgr = App.isManager();
     const label = { entrada: 'Entrada', saida: mgr ? 'Saída' : 'Saiu p/ entrega', producao: 'Montagem' };
     const pill = { entrada: 'ok', saida: 'warn', producao: 'bad' };
-    const originLabel = { estorno: 'Estorno', conferencia: 'Conferência', recebimento: 'Recebimento' };
+    const originLabel = { estorno: 'Estorno', conferencia: 'Conferência', recebimento: 'Recebimento', desmontagem: 'Desmontagem' };
     const labelOf = (m) => originLabel[m.origin] || label[m.type] || esc(m.type);
     const rows = App.state.movements
       .slice(0, 300)
       .map((m) => {
         const sign = m.type === 'entrada' ? '+' : '−';
         const done = !!m.revertedBy;
-        const canUndo = mgr && !done && !m.reverts && m.origin !== 'recebimento' && (m.type === 'entrada' || m.type === 'saida');
+        const canUndo = mgr && !done && !m.reverts && m.origin !== 'recebimento' && m.origin !== 'desmontagem' && (m.type === 'entrada' || m.type === 'saida');
         return `<tr${done ? ' class="reverted"' : ''}>
           <td class="num">${new Date(m.date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</td>
           <td><span class="pill ${m.origin ? 'info' : pill[m.type] || 'ok'}">${labelOf(m)}</span>${done ? ' <small class="muted">estornado</small>' : ''}</td>
@@ -902,18 +988,12 @@
         </tr>`;
       })
       .join('');
-    return `
-      <section class="page-head">
-        <div>
-          <h1>Histórico</h1>
-          <p class="muted">Últimas movimentações de peças: entradas, saídas e consumo das montagens.${mgr ? ' Lançou algo por engano? Use <b>Estornar</b>: o estoque volta e o estorno fica registrado.' : ''}</p>
-        </div>
-      </section>
-      <div class="table-wrap"><table>
+    return `<div class="table-wrap"><table>
         <thead><tr><th>Quando</th><th>Tipo</th><th>Peça</th><th class="right">Qtd.</th>${mgr ? '<th>Observação</th>' : ''}<th>Quem</th>${mgr ? '<th></th>' : ''}</tr></thead>
         <tbody>${rows || `<tr><td colspan="${mgr ? 7 : 5}" class="empty">Ainda não há movimentações.</td></tr>`}</tbody>
       </table></div>`;
   }
+  App.partsHistoryHtml = viewHistorico;
 
   // =====================================================================
   //  Financeiro (só gerência)
@@ -1024,7 +1104,6 @@
   App.registerTab({ id: 'pecas', label: 'Peças', order: 20, view: viewPecas });
   App.registerTab({ id: 'produtos', label: 'Produtos', order: 30, view: viewProdutos });
   App.registerTab({ id: 'simulacao', label: 'Simulação', order: 40, view: viewSimulacao, after: renderSimResult });
-  App.registerTab({ id: 'historico', label: 'Histórico', order: 60, view: viewHistorico });
   App.registerTab({ id: 'financeiro', label: 'Financeiro', order: 70, managerOnly: true, view: viewFinanceiro });
 
   // =====================================================================
@@ -1073,15 +1152,58 @@
       $('#photo-input').click();
     },
     'view-photo': (id, el) => openLightbox(el.dataset.kind, id),
+    'photo-click': (id, el, e) => {
+      const kind = el.dataset.kind;
+      const item = findItem(kind, id);
+      if (!item) return;
+      const list = photosOf(kind, item);
+      if (list.length > 1 && e) {
+        const r = el.getBoundingClientRect();
+        const x = (e.clientX - r.left) / (r.width || 1);
+        if (x < 0.3) return stepPhoto(kind, id, -1);
+        if (x > 0.7) return stepPhoto(kind, id, 1);
+      }
+      openLightbox(kind, id);
+    },
+    'lb-prev': (id, el) => {
+      App.photoIdx[id] = (idxOf(el.dataset.kind, findItem(el.dataset.kind, id)) - 1 + photosOf(el.dataset.kind, findItem(el.dataset.kind, id)).length) % photosOf(el.dataset.kind, findItem(el.dataset.kind, id)).length;
+      renderLightbox(el.dataset.kind, id);
+    },
+    'lb-next': (id, el) => {
+      const item = findItem(el.dataset.kind, id);
+      App.photoIdx[id] = (idxOf(el.dataset.kind, item) + 1) % photosOf(el.dataset.kind, item).length;
+      renderLightbox(el.dataset.kind, id);
+    },
+    'lb-go': (id, el) => {
+      App.photoIdx[id] = Number(el.dataset.i) || 0;
+      renderLightbox(el.dataset.kind, id);
+    },
+    'photo-cover': async (id, el) => {
+      const item = findItem(el.dataset.kind, id);
+      const url = photosOf('product', item)[idxOf('product', item)];
+      await App.store.coverPhoto(id, url);
+      App.photoIdx[id] = 0;
+      await App.refresh();
+      App.render();
+      renderLightbox('product', id);
+      toast('Esta agora é a foto principal.');
+    },
     'photo-remove': async (id, el) => {
       const kind = el.dataset.kind;
       const item = findItem(kind, id);
       if (!item || !(await confirmBox('Remover a foto?', 'Remover', true))) return;
       try {
-        await App.store.setPhoto(kind, id, null, item.photo);
-        $('#lightbox').close();
+        if (kind === 'product') {
+          const url = photosOf('product', item)[idxOf('product', item)];
+          await App.store.removePhoto(id, url);
+          App.photoIdx[id] = 0;
+        } else {
+          await App.store.setPhoto(kind, id, null, item.photo);
+        }
         await App.refresh();
         App.render();
+        if (kind === 'product' && photosOf('product', findItem('product', id)).length) renderLightbox('product', id);
+        else $('#lightbox').close();
         toast('Foto removida.');
       } catch (e) {
         toast(e.message, 'error');
@@ -1175,6 +1297,26 @@
       if (e.target.id === 'login-form') {
         e.preventDefault();
         doLogin(e.target);
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const d = e.key === 'ArrowRight' ? 1 : -1;
+      const btn = e.target.closest && e.target.closest('.media-main[data-action="photo-click"]');
+      if (btn) {
+        e.preventDefault();
+        return stepPhoto(btn.dataset.kind, btn.dataset.id, d);
+      }
+      const lb = $('#lightbox');
+      const stage = lb && lb.open ? $('.lb-stage', lb) : null;
+      if (stage) {
+        const item = findItem(stage.dataset.kind, stage.dataset.id);
+        const n = item ? photosOf(stage.dataset.kind, item).length : 0;
+        if (n > 1) {
+          App.photoIdx[stage.dataset.id] = (idxOf(stage.dataset.kind, item) + d + n) % n;
+          renderLightbox(stage.dataset.kind, stage.dataset.id);
+        }
       }
     });
 

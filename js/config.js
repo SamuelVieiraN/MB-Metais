@@ -12,5 +12,5 @@
  */
 window.APP_CONFIG = {
   supabaseUrl: 'https://ynmznvsqirwcqibpchon.supabase.co',
-  supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlubXpudnNxaXJ3Y3FpYnBjaG9uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwMzc5MzgsImV4cCI6MjEwNzYxMzkzOH0.5GiV3ZJf4FGTpoT8SLmkLPjIC_OFeMXDgZCm4uSsReA',
+  supabaseAnonKey: '',
 };
