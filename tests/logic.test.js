@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const L = require('../js/logic.js');
 
 global.window = {};
-require('../js/data.js');
+require('./fixture-data.js');
 const { parts, products } = global.window.SAMPLE_DATA;
 const byProd = Object.fromEntries(products.map((p) => [p.id, p]));
 const stock = L.stockMap(parts);

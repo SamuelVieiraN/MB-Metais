@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const L = require('../js/logic.js');
 const S = require('../js/sheets.js');
 global.window = {};
-require('../js/data.js');
+require('./fixture-data.js');
 const sample = () => JSON.parse(JSON.stringify(global.window.SAMPLE_DATA));
 let n = 0;
 const uidGen = () => (p) => p + 'new' + n++;
