@@ -136,6 +136,16 @@
           }
         </div>
       </div>
+      ${
+        manager && App.store.kind === 'supabase'
+          ? `<div class="card sheet-card" style="margin-top:16px">
+              <h2>Estoque fictício para demonstração</h2>
+              <p class="muted">Carrega 49 peças e 17 produtos (torneiras, duchas e chuveiros) com ficha técnica, guia de montagem e foto do produto montado. Serve para mostrar o sistema funcionando. Depois, remova antes de lançar o estoque real: <b>só sai o que foi carregado por aqui</b>.</p>
+              <div class="actions"><button class="btn" data-action="demo-load">Carregar estoque fictício</button>
+              <button class="btn danger" data-action="demo-remove">Remover estoque fictício</button></div>
+            </div>`
+          : ''
+      }
       <div id="import-preview">${previewHtml()}</div>`;
   }
 
@@ -199,7 +209,62 @@
   }
 
   // ---------------- ações ----------------
+  // ---------------- estoque fictício (modo online) ----------------
+  const hex12 = (n) => String(n).padStart(12, '0');
+  const demoId = (id) => {
+    const n = parseInt(String(id).replace(/\D/g, ''), 10);
+    return `de00000${id.startsWith('pr') ? 1 : 0}-0000-4000-8000-${hex12(n)}`;
+  };
+  async function loadDemo() {
+    if (!App.isManager()) return;
+    const D = root.SAMPLE_DATA;
+    if (!(await confirmBox(`Carregar ${D.parts.length} peças e ${D.products.length} produtos fictícios? Se já houver peças com os mesmos códigos (P001, PR001...), o sistema avisa e nada é gravado.`, 'Carregar'))) return;
+    try {
+      toast('Carregando... pode levar alguns segundos.');
+      await App.store.saveParts(
+        D.parts.map((p) => ({ id: demoId(p.id), code: p.code, name: p.name, stock: p.stock, min: p.min, cost: p.cost })),
+        'Estoque fictício de demonstração'
+      );
+      await App.store.saveProducts(
+        D.products.map((p) => ({
+          id: demoId(p.id), code: p.code, name: p.name, category: p.category, price: p.price, guide: p.guide || [],
+          bom: p.bom.map((b) => ({ partId: demoId(b.partId), qty: b.qty })),
+        }))
+      );
+      for (const p of D.products) {
+        if (!p.photo) continue;
+        try {
+          const res = await fetch(p.photo);
+          if (res.ok) await App.store.setPhoto('product', demoId(p.id), { blob: await res.blob() }, null);
+        } catch (e) {
+          /* sem a foto, o produto continua válido */
+        }
+      }
+      await App.refresh();
+      App.render();
+      toast('Estoque fictício carregado.');
+    } catch (e) {
+      toast(e.message || 'Não foi possível carregar.', 'error');
+    }
+  }
+  async function removeDemo() {
+    if (!App.isManager()) return;
+    if (!(await confirmBox('Remover o estoque fictício? Somem as peças e os produtos fictícios (os seus cadastros reais ficam). O histórico de movimentações continua registrado.', 'Remover', true))) return;
+    try {
+      const D = root.SAMPLE_DATA;
+      for (const p of D.products) if (App.state.products.some((x) => x.id === demoId(p.id))) await App.store.deleteProduct(demoId(p.id));
+      for (const p of D.parts) if (App.state.parts.some((x) => x.id === demoId(p.id))) await App.store.deletePart(demoId(p.id));
+      await App.refresh();
+      App.render();
+      toast('Estoque fictício removido.');
+    } catch (e) {
+      toast(e.message || 'Não foi possível remover.', 'error');
+    }
+  }
+
   Object.assign(App.actions, {
+    'demo-load': loadDemo,
+    'demo-remove': removeDemo,
     'sheet-export': () => {
       const finance = App.isManager() && exportOpts.finance;
       const blob = X.build(S.buildExport(App.state, { finance, history: exportOpts.history }));

@@ -8,7 +8,7 @@
   'use strict';
 
   const App = root.App;
-  const { esc, int, icons, toast, confirmBox, openModal, uuid, $, $$ } = root.UI;
+  const { esc, int, brl, icons, toast, confirmBox, openModal, uuid, $, $$ } = root.UI;
 
   App.rcFilter = App.rcFilter || 'todos';
 
@@ -43,6 +43,7 @@
           <td class="right num">${i.expected === null || i.expected === undefined ? '–' : int(i.expected)}</td>
           <td class="right num"><b>${int(i.received)}</b></td>
           <td class="right num ${d ? (d > 0 ? 'pos' : 'neg') : ''}">${d === null ? '–' : (d > 0 ? '+' : '') + int(d)}</td>
+          ${manager ? `<td class="right num">${i.unitCost === null || i.unitCost === undefined ? '<span class="muted">–</span>' : brl(i.unitCost)}</td>` : ''}
         </tr>`;
       })
       .join('');
@@ -61,7 +62,7 @@
       <div style="padding:0 14px 14px">
         ${manager && r.supplier ? `<p class="muted">Fornecedor: <b>${esc(r.supplier)}</b></p>` : ''}
         <div class="table-wrap"><table>
-          <thead><tr><th>Peça</th><th class="right">Na nota</th><th class="right">Chegou</th><th class="right">Diferença</th></tr></thead>
+          <thead><tr><th>Peça</th><th class="right">Na nota</th><th class="right">Chegou</th><th class="right">Diferença</th>${manager ? '<th class="right">Custo unit.</th>' : ''}</tr></thead>
           <tbody>${rows}</tbody>
         </table></div>
         ${!manager && r.status === 'pendente' ? '<p class="hint" style="margin-top:8px">Aguardando o gerente autorizar. Só depois disso as peças entram no estoque.</p>' : ''}
@@ -115,10 +116,12 @@
 
   function rowHtml(item) {
     const part = item ? App.state.parts.find((p) => p.id === item.partId) : null;
-    return `<div class="rc-row">
+    const m = App.isManager();
+    return `<div class="rc-row${m ? ' m' : ''}">
       <input class="rc-part" list="rc-parts" placeholder="Código ou nome da peça" autocomplete="off" value="${part ? esc(labelOf(part)) : ''}" aria-label="Peça" />
       <input class="rc-exp" type="number" min="0" step="1" inputmode="numeric" placeholder="Na nota" aria-label="Quantidade na nota" value="${item && item.expected !== null && item.expected !== undefined ? item.expected : ''}" />
       <input class="rc-rec" type="number" min="0" step="1" inputmode="numeric" placeholder="Chegou" aria-label="Quantidade que chegou" value="${item ? item.received : ''}" />
+      ${m ? `<input class="rc-cost" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Custo unit." aria-label="Custo de compra por unidade (R$)" value="${item && item.unitCost !== null && item.unitCost !== undefined ? item.unitCost : ''}" />` : ''}
       <button type="button" class="icon-btn" data-action="rc-del-row" aria-label="Remover linha">${icons.x}</button>
     </div>`;
   }
@@ -144,11 +147,11 @@
             </label>`
           : ''
       }
-      <div class="rc-head"><span>Peça</span><span>Na nota</span><span>Chegou</span><span></span></div>
+      <div class="rc-head${manager ? ' m' : ''}"><span>Peça</span><span>Na nota</span><span>Chegou</span>${manager ? '<span>Custo unit. (R$)</span>' : ''}<span></span></div>
       <datalist id="rc-parts">${options}</datalist>
       <div id="rc-rows">${rows}</div>
       <button type="button" class="btn small" data-action="rc-add-row">${icons.plus} Adicionar peça</button>
-      <p class="hint">Digite o código ou o nome e escolha na lista (um leitor de código de barras também serve). ${manager ? 'Se a peça for nova, o sistema oferece cadastrá-la na hora.' : 'A peça precisa estar cadastrada; se for nova, peça ao gerente.'} <b>Enter</b> avança; no campo "Chegou", cria uma linha nova. "Na nota" é opcional: serve para ver se chegou diferente do que veio na nota.</p>
+      <p class="hint">Digite o código ou o nome e escolha na lista (um leitor de código de barras também serve). ${manager ? 'Se a peça for nova, o sistema oferece cadastrá-la na hora.' : 'A peça precisa estar cadastrada; se for nova, peça ao gerente.'} <b>Enter</b> avança; no campo "Chegou", cria uma linha nova. "Na nota" é opcional: serve para ver se chegou diferente do que veio na nota.${manager ? ' <b>Custo unit.</b> (opcional): o preço pago por unidade nesta compra. Ao autorizar, o custo da peça é recalculado pela média ponderada com o estoque atual e a mudança fica na auditoria (Financeiro).' : ''}</p>
       ${
         concluded
           ? `<label>Motivo da edição (obrigatório)
@@ -187,7 +190,10 @@
             part = App.state.parts.find((p) => p.id === id);
             if (!part) return { error: 'Não consegui cadastrar a peça. Tente em Peças > Nova peça.' };
           }
-          items.push({ partId: part.id, expected: exp === '' ? null : Number(exp), received: rec === '' ? 0 : Number(rec) });
+          const costEl = $('.rc-cost', row);
+          const cost = costEl ? costEl.value.trim() : '';
+          if (cost !== '' && !(Number(cost) >= 0)) return { error: 'O custo unitário não pode ser negativo.' };
+          items.push({ partId: part.id, expected: exp === '' ? null : Number(exp), received: rec === '' ? 0 : Number(rec), unitCost: cost === '' ? null : Number(cost) });
         }
         if (!items.length) return { error: 'Inclua pelo menos uma peça.' };
         for (const i of items) {
@@ -232,7 +238,8 @@
       const r = find(id);
       if (!r || !App.isManager()) return;
       const total = r.items.reduce((s, i) => s + i.received, 0);
-      if (!(await confirmBox(`Autorizar o recebimento #${r.num}? Entram no estoque ${int(total)} unidade(s) em ${r.items.length} peça(s).`, 'Autorizar recebimento'))) return;
+      const withCost = r.items.filter((i) => i.unitCost !== null && i.unitCost !== undefined && i.received > 0).length;
+      if (!(await confirmBox(`Autorizar o recebimento #${r.num}? Entram no estoque ${int(total)} unidade(s) em ${r.items.length} peça(s).${withCost ? ` O custo de ${withCost} peça(s) será recalculado pela média ponderada.` : ''}`, 'Autorizar recebimento'))) return;
       await App.commit(() => App.store.approveReceipt(id));
       toast('Recebimento autorizado e lançado no estoque.');
     },
@@ -270,6 +277,7 @@
     const row = t.closest('.rc-row');
     if (t.classList.contains('rc-part')) $('.rc-exp', row).focus();
     else if (t.classList.contains('rc-exp')) $('.rc-rec', row).focus();
+    else if (t.classList.contains('rc-rec') && $('.rc-cost', row)) $('.rc-cost', row).focus();
     else {
       const next = row.nextElementSibling;
       if (next && next.classList.contains('rc-row')) $('.rc-part', next).focus();

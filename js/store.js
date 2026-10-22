@@ -7,7 +7,7 @@
   'use strict';
 
   const L = root.Logic;
-  const KEY = 'estoque-torneiras:v1';
+  const KEY = 'estoque-torneiras:v2';
   const clone = (o) => JSON.parse(JSON.stringify(o));
   const uuid = () => root.UI.uuid();
 
@@ -20,6 +20,7 @@
           d.movements = Array.isArray(d.movements) ? d.movements : [];
           d.counts = Array.isArray(d.counts) ? d.counts : [];
           d.receipts = Array.isArray(d.receipts) ? d.receipts : [];
+          d.priceLog = Array.isArray(d.priceLog) ? d.priceLog : [];
           return d;
         }
       }
@@ -29,6 +30,7 @@
     const fresh = clone(root.SAMPLE_DATA);
     fresh.counts = [];
     fresh.receipts = [];
+    fresh.priceLog = [];
     return fresh;
   }
 
@@ -42,7 +44,7 @@
 
 
   /** Valida e normaliza os itens de um recebimento (mesmas regras do banco). */
-  function receiptItems(db, items) {
+  function receiptItems(db, items, canCost) {
     if (!Array.isArray(items) || !items.length) throw new Error('Inclua pelo menos uma peça no recebimento.');
     const seen = new Set();
     let any = false;
@@ -55,7 +57,9 @@
       const expected = it.expected === null || it.expected === undefined || it.expected === '' ? null : Math.floor(Number(it.expected));
       if (!(received >= 0) || (expected !== null && !(expected >= 0))) throw new Error('As quantidades não podem ser negativas.');
       if (received > 0) any = true;
-      return { partId: part.id, name: part.name, code: part.code || '', expected, received };
+      const uc = canCost && it.unitCost !== null && it.unitCost !== undefined && it.unitCost !== '' ? L.round2(Number(it.unitCost)) : null;
+      if (uc !== null && !(uc >= 0)) throw new Error('O custo de compra não pode ser negativo.');
+      return { partId: part.id, name: part.name, code: part.code || '', expected, received, unitCost: uc };
     });
     if (!any) throw new Error('Informe a quantidade recebida de pelo menos uma peça.');
     return out;
@@ -85,6 +89,12 @@
       return mv;
     }
 
+    function logPrice(db, kind, item, oldV, newV, source, detail) {
+      if (oldV !== null && oldV === newV) return;
+      db.priceLog.unshift({ id: uuid(), date: new Date().toISOString(), kind, itemId: item.id, name: item.name, oldValue: oldV, newValue: newV, source, detail: detail || '', who: me().name || '' });
+      if (db.priceLog.length > 1000) db.priceLog.length = 1000;
+    }
+
     const needManager = () => {
       if (me().role !== 'gerente') throw new Error('Apenas o gerente pode fazer isso.');
     };
@@ -99,7 +109,9 @@
           db.receipts.forEach((r) => {
             r.supplier = '';
             r.log = r.log.map((e) => ({ ...e, detail: '' }));
+            r.items.forEach((i) => delete i.unitCost);
           });
+          db.priceLog = [];
         }
         return db;
       },
@@ -125,11 +137,15 @@
           if (existing) {
             const old = existing.stock;
             Object.assign(existing, { code, name, min, stock });
-            if (cost !== null) existing.cost = cost;
+            if (cost !== null) {
+              logPrice(db, 'custo', existing, existing.cost, cost, 'manual');
+              existing.cost = cost;
+            }
             if (stock !== old) logMove(db, existing, stock > old ? 'entrada' : 'saida', Math.abs(stock - old), note || 'Ajuste manual');
           } else {
             const part = { id: it.id, code, name, stock, min, cost: cost === null ? 0 : cost };
             db.parts.push(part);
+            if (cost !== null) logPrice(db, 'custo', part, null, cost, 'cadastro');
             if (stock > 0) logMove(db, part, 'entrada', stock, !note || note === 'Ajuste manual' ? 'Estoque inicial' : `Estoque inicial · ${note}`);
           }
         }
@@ -150,12 +166,18 @@
           }
           const category = String(it.category || '').trim() || 'Sem categoria';
           let product = db.products.find((p) => p.id === it.id);
+          let isNew = false;
           if (!product) {
-            product = { id: it.id, code, name, category, price: 0, bom: [] };
+            product = { id: it.id, code, name, category, price: 0, bom: [], guide: [] };
             db.products.push(product);
+            isNew = true;
           }
           Object.assign(product, { code, name, category });
-          if (price !== null) product.price = price;
+          if (price !== null) {
+            logPrice(db, 'preco', product, isNew ? null : product.price, price, isNew ? 'cadastro' : 'manual');
+            product.price = price;
+          }
+          if (Array.isArray(it.guide)) product.guide = it.guide.map((x) => String(x).trim()).filter(Boolean);
           if (Array.isArray(it.bom)) {
             const merged = {};
             for (const b of it.bom) {
@@ -189,9 +211,12 @@
         const db = readDb();
         const part = db.parts.find((p) => p.id === partId);
         const cost = me().role === 'gerente' ? unitCost : null; // só o gerente mexe em custo
+        const before = part ? part.cost : 0;
         const res = L.applyMovement(db.parts, partId, type, qty, cost);
         if (!res.ok) throw new Error(res.error);
         db.parts = res.parts;
+        const after = db.parts.find((p) => p.id === partId);
+        if (type === 'entrada' && cost != null && after.cost !== before) logPrice(db, 'custo', after, before, after.cost, 'compra', `Entrada de ${Math.floor(Number(qty))} un. a R$ ${Number(cost).toFixed(2).replace('.', ',')}`);
         logMove(db, part, type, Math.floor(Number(qty)), me().role === 'gerente' ? note : '');
         writeDb(db);
       },
@@ -296,8 +321,8 @@
       /** items: [{ partId, expected (opcional), received }] */
       async createReceipt({ ref, items, supplier }) {
         const db = readDb();
-        const out = receiptItems(db, items);
         const u = me();
+        const out = receiptItems(db, items, u.role === 'gerente');
         db.receipts.unshift({
           id: uuid(),
           num: (db.receipts.reduce((m, r) => Math.max(m, r.num || 0), 0) || 0) + 1,
@@ -323,8 +348,15 @@
           if (it.received <= 0) continue;
           const part = db.parts.find((p) => p.id === it.partId);
           if (!part) throw new Error(`A peça "${it.name}" não existe mais.`);
+          const before = part.stock;
           part.stock += it.received;
           logMove(db, part, 'entrada', it.received, `Recebimento #${r.num}`, { origin: 'recebimento' });
+          if (it.unitCost !== null && it.unitCost !== undefined) {
+            const oldCost = part.cost || 0;
+            const avg = oldCost > 0 && before > 0 ? L.round2((before * oldCost + it.received * it.unitCost) / (before + it.received)) : L.round2(it.unitCost);
+            logPrice(db, 'custo', part, oldCost, avg, 'recebimento', `Recebimento #${r.num}: ${it.received} un. a R$ ${it.unitCost.toFixed(2).replace('.', ',')}`);
+            part.cost = avg;
+          }
         }
         r.status = 'concluido';
         r.updatedAt = new Date().toISOString();
@@ -338,7 +370,7 @@
         const r = db.receipts.find((x) => x.id === id);
         if (!r) throw new Error('Recebimento não encontrado.');
         if (r.status === 'excluido') throw new Error('Recebimentos excluídos não podem ser editados.');
-        const out = receiptItems(db, items);
+        const out = receiptItems(db, items, true);
         let status = r.status;
         if (r.status === 'concluido' || r.status === 'concluido_editado') {
           if (!String(reason || '').trim()) throw new Error('Informe o motivo da edição.');
@@ -401,6 +433,7 @@
         const fresh = clone(root.SAMPLE_DATA);
         fresh.counts = [];
         fresh.receipts = [];
+        fresh.priceLog = [];
         writeDb(fresh);
       },
       async exportJson() {
@@ -411,6 +444,7 @@
         d.movements = Array.isArray(d.movements) ? d.movements : [];
         d.counts = Array.isArray(d.counts) ? d.counts : [];
         d.receipts = Array.isArray(d.receipts) ? d.receipts : [];
+        d.priceLog = Array.isArray(d.priceLog) ? d.priceLog : [];
         writeDb(d);
       },
     };

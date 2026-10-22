@@ -128,6 +128,7 @@
       part_id: i.partId,
       expected: i.expected === null || i.expected === undefined || i.expected === '' ? null : Math.floor(Number(i.expected)),
       received: Math.floor(Number(i.received)),
+      unit_cost: i.unitCost === null || i.unitCost === undefined || i.unitCost === '' || !Number.isFinite(Number(i.unitCost)) ? null : Number(i.unitCost),
     }));
 
   // ---------------- login ----------------
@@ -223,15 +224,16 @@
 
       async load() {
         const manager = isManager();
-        const [parts, products, bom, moves, costs, prices, counts, receipts] = await Promise.all([
+        const [parts, products, bom, moves, costs, prices, counts, receipts, plog] = await Promise.all([
           getAll('parts', 'select=id,code,name,stock,min,photo_url&order=name.asc'),
-          getAll('products', 'select=id,code,name,category,photo_url&order=name.asc'),
+          getAll('products', 'select=id,code,name,category,photo_url,guide&order=name.asc'),
           getAll('bom', 'select=product_id,part_id,qty'),
           api('/rest/v1/rpc/list_movements', { method: 'POST', body: { p_limit: 500 } }),
           manager ? getAll('part_costs', 'select=part_id,cost') : [],
           manager ? getAll('product_prices', 'select=product_id,price') : [],
           api('/rest/v1/rpc/list_counts', { method: 'POST', body: { p_limit: 30 } }),
           api('/rest/v1/rpc/list_receipts', { method: 'POST', body: { p_limit: 100 } }),
+          manager ? api('/rest/v1/rpc/list_price_log', { method: 'POST', body: { p_limit: 300 } }) : [],
         ]);
         const costOf = {};
         costs.forEach((c) => (costOf[c.part_id] = Number(c.cost)));
@@ -256,7 +258,20 @@
             category: p.category,
             price: priceOf[p.id] || 0,
             photo: p.photo_url || undefined,
+            guide: Array.isArray(p.guide) ? p.guide : [],
             bom: bomOf[p.id] || [],
+          })),
+          priceLog: (plog || []).map((l) => ({
+            id: l.id,
+            date: l.created_at,
+            kind: l.kind,
+            itemId: l.item_id,
+            name: l.item_name,
+            oldValue: l.old_value === null ? null : Number(l.old_value),
+            newValue: Number(l.new_value),
+            source: l.source,
+            detail: l.detail || '',
+            who: l.user_name,
           })),
           movements: moves.map((m) => ({
             id: m.id,
@@ -281,7 +296,7 @@
             ref: r.ref,
             supplier: r.supplier,
             status: r.status,
-            items: (r.items || []).map((i) => ({ partId: i.part_id, name: i.name, code: i.code || '', expected: i.expected === undefined ? null : i.expected, received: i.received })),
+            items: (r.items || []).map((i) => ({ partId: i.part_id, name: i.name, code: i.code || '', expected: i.expected === undefined ? null : i.expected, received: i.received, unitCost: i.unit_cost === undefined || i.unit_cost === null ? null : Number(i.unit_cost) })),
             log: r.log || [],
           })),
           counts: (counts || []).map((c) => ({

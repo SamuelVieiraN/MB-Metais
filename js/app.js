@@ -577,6 +577,7 @@
             <div><span class="hint">Ficha técnica (por unidade)</span><ul class="bom">${items || '<li class="muted">Nenhuma peça cadastrada.</li>'}</ul></div>
             ${money}
             <div class="actions">
+              <button class="btn small" data-action="guide" data-id="${p.id}">Guia de montagem</button>
               <button class="btn primary small" data-action="produce" data-id="${p.id}" ${max === 0 ? 'disabled' : ''}>Registrar montagem</button>
               ${manager ? `<button class="btn small" data-action="edit-product" data-id="${p.id}">Editar</button>` : ''}
             </div>
@@ -594,6 +595,52 @@
       </section>
       <div class="grid">${cards || '<div class="empty card" style="grid-column:1/-1">Nenhum produto cadastrado.</div>'}</div>`;
   }
+
+
+  // =====================================================================
+  //  Guia de montagem (para o operador): foto do resultado, peças e passo a passo
+  // =====================================================================
+  function openGuide(productId) {
+    const p = App.state.products.find((x) => x.id === productId);
+    if (!p) return;
+    const byId = L.partsById(App.state.parts);
+    const { max } = L.maxProducible(p, L.stockMap(App.state.parts));
+    const partRows = p.bom
+      .map((i) => {
+        const part = byId[i.partId];
+        const short = !part || part.stock < i.qty;
+        return `<li class="g-item"><label><input type="checkbox" class="g-chk" /> <span>${esc(part ? part.name : '(peça removida)')}</span></label>
+          <span class="q">${int(i.qty)}×</span>${short ? '<span class="pill bad">falta peça</span>' : ''}</li>`;
+      })
+      .join('');
+    const steps = (p.guide || [])
+      .map((s, n) => `<li class="g-step"><label><input type="checkbox" class="g-chk" /> <span><b>${n + 1}.</b> ${esc(s)}</span></label></li>`)
+      .join('');
+    const total = p.bom.length + (p.guide || []).length;
+    const body = `
+      ${p.photo ? `<figure class="guide-photo"><img src="${esc(p.photo)}" alt="Produto montado: ${esc(p.name)}" /><figcaption>Resultado final: assim o produto deve ficar</figcaption></figure>` : '<p class="hint">Este produto ainda não tem foto do produto montado.</p>'}
+      <h3 class="guide-h">1. Separe as peças (para 1 unidade)</h3>
+      <ul class="g-list">${partRows || '<li class="muted">Sem peças na ficha técnica.</li>'}</ul>
+      <h3 class="guide-h">2. Monte seguindo os passos</h3>
+      ${steps ? `<ol class="g-list g-steps">${steps}</ol>` : `<p class="hint">Ainda não há passo a passo cadastrado${App.isManager() ? '. Edite o produto e escreva os passos (um por linha).' : '. Peça ao gerente para cadastrar.'}</p>`}
+      <p class="g-progress" id="g-progress" data-total="${total}" aria-live="polite">0 de ${total} itens conferidos</p>
+      <p class="hint">${max > 0 ? `Dá para montar até <b>${int(max)}</b> com o estoque atual.` : '<b>Sem peças suficientes para montar agora.</b> Veja a aba Reposição.'} As marcações são só para você acompanhar e não ficam salvas.</p>`;
+    openModal(`Guia de montagem · ${p.name}`, body, async () => {
+      setTimeout(() => openProduce(productId), 0);
+    }, 'Registrar montagem', { wide: true, noFocus: true });
+    const sub = $('button[type=submit]', $('#modal'));
+    if (sub && max === 0) sub.disabled = true;
+  }
+
+  document.addEventListener('change', (e) => {
+    if (!e.target.classList || !e.target.classList.contains('g-chk')) return;
+    const modal = $('#modal');
+    const done = $$('.g-chk:checked', modal).length;
+    const box = $('#g-progress', modal);
+    if (box) box.textContent = `${done} de ${box.dataset.total} itens conferidos${done === Number(box.dataset.total) && done > 0 ? ' · tudo pronto, pode registrar a montagem' : ''}`;
+    const li = e.target.closest('li');
+    if (li) li.classList.toggle('done', e.target.checked);
+  });
 
   function bomRow(selectedId, qty) {
     const opts = App.state.parts
@@ -631,6 +678,9 @@
       <label>Preço de venda (R$)
         <input name="price" type="number" min="0" step="0.01" inputmode="decimal" value="${editing ? editing.price : 0}" />
       </label>
+      <label>Passo a passo da montagem (um passo por linha)
+        <textarea name="guide" rows="6" maxlength="3000" placeholder="1. Separe as peças...&#10;2. Passe a fita veda-rosca...">${esc(editing && editing.guide ? editing.guide.join('\n') : '')}</textarea>
+      </label>
       <div>
         <strong style="font-size:.9rem">Ficha técnica: peças em 1 unidade</strong>
         <div id="bom-rows" style="margin-top:6px">${rows}</div>
@@ -658,6 +708,7 @@
         category: String(fd.get('category') || '').trim() || 'Sem categoria',
         price,
         bom,
+        guide: String(fd.get('guide') || '').split('\n').map((x) => x.replace(/^\s*\d+\s*[.)-]\s*/, '').trim()).filter(Boolean),
       };
       await App.commit(() => App.store.saveProducts([item]));
       toast('Produto salvo.');
@@ -851,6 +902,50 @@
   // =====================================================================
   //  Financeiro (só gerência)
   // =====================================================================
+
+  // =====================================================================
+  //  Auditoria de custos e preços (Financeiro)
+  // =====================================================================
+  const SRC = { manual: 'Ajuste manual', compra: 'Compra (entrada)', recebimento: 'Recebimento', cadastro: 'Cadastro' };
+  App.auditFilter = App.auditFilter || 'todos';
+  const changePct = (l) => (l.oldValue && l.oldValue > 0 ? ((l.newValue - l.oldValue) / l.oldValue) * 100 : null);
+  const isAlert = (l) => l.kind === 'custo' && changePct(l) !== null && changePct(l) >= 10;
+
+  function auditHtml() {
+    const log = App.state.priceLog || [];
+    const f = App.auditFilter;
+    const shown = log.filter((l) => f === 'todos' || (f === 'alertas' ? isAlert(l) : f === 'custo' ? l.kind === 'custo' : l.kind === 'preco'));
+    const alerts = log.filter(isAlert);
+    const dt = (iso) => new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+    const rows = shown
+      .map((l) => {
+        const c = changePct(l);
+        const cls = c === null ? '' : l.kind === 'custo' ? (c > 0 ? 'neg' : 'pos') : c > 0 ? 'pos' : 'neg';
+        return `<tr class="${isAlert(l) ? 'alert-row' : ''}">
+          <td>${dt(l.date)}</td>
+          <td><b>${esc(l.name)}</b><br><span class="hint">${l.kind === 'custo' ? 'Custo da peça' : 'Preço de venda'}</span></td>
+          <td class="right num">${l.oldValue === null ? '–' : brl(l.oldValue)}</td>
+          <td class="right num"><b>${brl(l.newValue)}</b></td>
+          <td class="right num ${cls}">${c === null ? '–' : (c > 0 ? '+' : '') + pct(c)}</td>
+          <td>${esc(SRC[l.source] || l.source)}${l.detail ? `<br><span class="hint">${esc(l.detail)}</span>` : ''}</td>
+          <td>${esc(l.who || '')}</td>
+        </tr>`;
+      })
+      .join('');
+    const chips = [['todos', 'Tudo'], ['alertas', `Alertas${alerts.length ? ` (${alerts.length})` : ''}`], ['custo', 'Custos'], ['preco', 'Preços']]
+      .map(([id, label]) => `<button class="chip ${f === id ? 'on' : ''}" data-action="audit-filter" data-id="${id}">${label}</button>`)
+      .join('');
+    return `
+      <h2 style="margin-top:24px">Auditoria de custos e preços</h2>
+      <p class="muted">Toda mudança de custo de peça ou preço de venda fica aqui: quando, de quanto para quanto, de onde veio (recebimento, compra, ajuste manual) e quem fez. Aumentos de custo de <b>10% ou mais</b> aparecem como alerta.</p>
+      ${alerts.length ? `<div class="notice warn" role="status"><b>${alerts.length} aumento(s) de custo de 10% ou mais.</b> Última: ${esc(alerts[0].name)} (${alerts[0].oldValue !== null ? brl(alerts[0].oldValue) + ' → ' : ''}${brl(alerts[0].newValue)}). Confira se os preços de venda ainda cobrem a margem.</div>` : ''}
+      <div class="chips" style="margin:10px 0">${chips}</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Quando</th><th>Item</th><th class="right">Antes</th><th class="right">Depois</th><th class="right">Variação</th><th>Origem</th><th>Quem</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="7" class="empty">Nenhuma mudança registrada ainda.</td></tr>'}</tbody>
+      </table></div>`;
+  }
+
   function viewFinanceiro() {
     const { parts, products } = App.state;
     const stock = L.stockMap(parts);
@@ -906,7 +1001,7 @@
       <div class="table-wrap"><table>
         <thead><tr><th>Peça</th><th class="right">Estoque</th><th class="right">Custo unit.</th><th class="right">Valor</th></tr></thead>
         <tbody>${partRows}</tbody>
-      </table></div>`;
+      </table></div>${auditHtml()}`;
   }
 
   App.registerTab({ id: 'mostruario', label: 'Mostruário', order: 10, view: viewMostruario });
@@ -985,6 +1080,11 @@
     'edit-product': (id) => openProductForm(id),
     'del-product': (id) => deleteProduct(id),
     produce: (id) => openProduce(id),
+    guide: (id) => openGuide(id),
+    'audit-filter': (id) => {
+      App.auditFilter = id;
+      App.render();
+    },
     'add-bom-row': () => {
       const wrap = $('#bom-rows', $('#modal'));
       if (wrap) wrap.insertAdjacentHTML('beforeend', bomRow(App.state.parts[0].id, 1));
