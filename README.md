@@ -13,7 +13,8 @@ Funciona em **dois modos**, escolhidos pelo arquivo `js/config.js`:
 | --- | --- |
 | **Mostruário** | Catálogo com foto: quanto dá para montar de cada produto, qual peça limita, alertas. |
 | **Peças** | Estoque, mínimo, código, foto, entradas e saídas. |
-| **Produtos** | Ficha técnica, foto do produto montado, **Guia de montagem** (foto do resultado, checklist de peças e passo a passo) e registro de montagem (desconta as peças). |
+| **Produtos** | Ficha técnica, foto do produto montado, **Guia de montagem** (foto do resultado, checklist de peças e passo a passo) e registro de montagem (desconta as peças e soma aos produtos prontos). |
+| **Pedidos** | Pedidos de clientes com acompanhamento: o que já está montado, o que falta e se as peças dão. O gerente cria e finaliza (dá baixa nos produtos prontos); o funcionário só acompanha, sem nome do cliente. |
 | **Recebimento** | Chegou mercadoria (pela nota fiscal)? Qualquer pessoa registra o lote; o gerente autoriza e só então entra no estoque. Fica o registro: Aguardando autorização, Concluído, Concluído (editado) ou Excluído, com motivo. |
 | **Reposição** | Lista de compras: o que falta para o mínimo e, se quiser, para uma meta de produção. Copia a lista ou baixa em Excel. |
 | **Simulação** | Quanto montar e o que sobra/falta, sem mexer no estoque. |
@@ -62,11 +63,12 @@ Se o `schema.sql` já foi rodado antes, rode as migrações que faltam, em ordem
 2. `supabase/migracao-3-estorno-conferencia.sql` (estorno, reposição e conferência)
 3. `supabase/migracao-4-recebimento.sql` (recebimento por lote)
 4. `supabase/migracao-5-auditoria-guia.sql` (auditoria de custos, custo de compra no recebimento, guia de montagem)
+5. `supabase/migracao-6-pedidos.sql` (produto pronto e pedidos de clientes)
 
 Antes de publicar o site novo, rode a migração; se o site subir antes, as telas dão erro até ela rodar.
 
 ### Estoque fictício para demonstração
-O site já vem com 49 peças e 17 produtos de exemplo (torneiras, duchas e chuveiros), com ficha técnica, guia de montagem e foto ilustrativa. No modo demonstração ele aparece sozinho. No modo online, o gerente usa **Planilhas > Estoque fictício > Carregar** (e **Remover** antes de lançar o estoque real).
+O site já vem com 49 peças, 17 produtos de exemplo (torneiras, duchas e chuveiros) com ficha técnica, guia de montagem e foto ilustrativa, alguns já montados e 3 pedidos de exemplo. No modo demonstração ele aparece sozinho. No modo online, o gerente usa **Planilhas > Estoque fictício > Carregar** (e **Remover** antes de lançar o estoque real).
 
 ### Aviso sobre o modo demonstração
 As senhas de demonstração (`gerente@mbmetais.demo`) estão no código público e os dados ficam só no navegador. É para mostrar o sistema, **não para dados reais**.
@@ -104,6 +106,7 @@ js/views-sheets.js    aba Planilhas
 js/views-users.js     aba Usuários
 js/views-extra.js     abas Reposição e Conferência
 js/views-recebimento.js aba Recebimento
+js/views-orders.js    aba Pedidos
 js/images.js          redução das fotos antes de guardar
 supabase/schema.sql   tabelas, regras de acesso e funções do banco
 tests/                testes (fixture-data.js = dados pequenos fixos dos testes)
