@@ -456,6 +456,12 @@ tfoot td { border-top: 2px solid var(--line); background: #fbfdfd; }
 .rc-row .rc-exp, .rc-row .rc-rec { text-align: right; }
 .rc-log { margin: 0; padding-left: 18px; font-size: 0.86rem; color: var(--ink-soft); }
 .rc-log li { padding: 2px 0; }
+.ord-bar { height: 10px; border-radius: 999px; background: rgba(120, 130, 145, 0.22); overflow: hidden; margin: 4px 0 10px; }
+.ord-bar span { display: block; height: 100%; background: #e0a100; border-radius: 999px; transition: width 0.3s; }
+.ord-bar span.full { background: #1f9d62; }
+.notice { background: rgba(20, 120, 150, 0.09); border: 1px solid rgba(20, 120, 150, 0.3); border-radius: 10px; padding: 10px 12px; margin: 8px 0; }
+.notice.ok { background: rgba(31, 157, 98, 0.12); border-color: rgba(31, 157, 98, 0.45); }
+.pill.ready { background: rgba(20, 120, 150, 0.12); color: #0e6a85; }
 .guide-photo { margin: 0 0 12px; text-align: center; }
 .guide-photo img { max-width: 100%; max-height: 260px; border-radius: 12px; border: 1px solid var(--line, #d8dee6); object-fit: contain; background: #eef2f6; }
 .guide-photo figcaption { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
