@@ -184,12 +184,21 @@
     products.forEach((p) => (ready[p.id] = Math.max(0, Math.floor(p.ready || 0))));
     const open = (orders || []).filter((o) => o.status === 'aberto').sort((a, b) => new Date(a.date) - new Date(b.date));
     const out = {};
+    // 1) reservas feitas pelo gerente têm prioridade
     for (const o of open) {
       out[o.id] = {};
       for (const it of o.items) {
-        const give = Math.min(ready[it.productId] || 0, it.qty);
+        const give = Math.min(ready[it.productId] || 0, it.qty, Math.max(0, it.reserved || 0));
         ready[it.productId] = (ready[it.productId] || 0) - give;
         out[o.id][it.productId] = give;
+      }
+    }
+    // 2) o que sobrou é repartido pelos pedidos mais antigos
+    for (const o of open) {
+      for (const it of o.items) {
+        const give = Math.min(ready[it.productId] || 0, it.qty - (out[o.id][it.productId] || 0));
+        ready[it.productId] = (ready[it.productId] || 0) - give;
+        out[o.id][it.productId] += give;
       }
     }
     return out;
@@ -203,7 +212,7 @@
     const done = order.status === 'concluido';
     const lines = order.items.map((it) => {
       const have = done ? it.qty : Math.min(it.qty, mine[it.productId] || 0);
-      return { productId: it.productId, name: it.name, code: it.code || '', qty: it.qty, have, missing: it.qty - have, gone: !byProd[it.productId] };
+      return { productId: it.productId, name: it.name, code: it.code || '', qty: it.qty, have, missing: it.qty - have, reserved: Math.min(it.qty, it.reserved || 0), gone: !byProd[it.productId] };
     });
     const total = lines.reduce((s, l) => s + l.qty, 0);
     const have = lines.reduce((s, l) => s + l.have, 0);

@@ -22,6 +22,7 @@
           d.receipts = Array.isArray(d.receipts) ? d.receipts : [];
           d.priceLog = Array.isArray(d.priceLog) ? d.priceLog : [];
           d.orders = Array.isArray(d.orders) ? d.orders : [];
+          d.readyLog = Array.isArray(d.readyLog) ? d.readyLog : [];
           d.products.forEach((p) => (p.ready = Math.max(0, Math.floor(p.ready || 0))));
           return d;
         }
@@ -34,6 +35,7 @@
     fresh.receipts = [];
     fresh.priceLog = [];
     fresh.orders = fresh.orders || [];
+    fresh.readyLog = [];
     return fresh;
   }
 
@@ -79,7 +81,7 @@
       seen.add(p.id);
       const qty = Math.floor(Number(it.qty));
       if (!(qty > 0)) throw new Error('A quantidade de cada produto deve ser maior que zero.');
-      return { productId: p.id, name: p.name, code: p.code || '', qty };
+      return { productId: p.id, name: p.name, code: p.code || '', qty, reserved: 0 };
     });
   }
 
@@ -113,6 +115,11 @@
       if (db.priceLog.length > 1000) db.priceLog.length = 1000;
     }
 
+    function logReady(db, product, delta, kind, note) {
+      db.readyLog.unshift({ id: uuid(), date: new Date().toISOString(), productId: product.id, name: product.name, delta, kind, note: note || '', who: me().name || '' });
+      if (db.readyLog.length > 500) db.readyLog.length = 500;
+    }
+
     const needManager = () => {
       if (me().role !== 'gerente') throw new Error('Apenas o gerente pode fazer isso.');
     };
@@ -130,6 +137,7 @@
             r.items.forEach((i) => delete i.unitCost);
           });
           db.priceLog = [];
+          db.readyLog.forEach((l) => (l.note = ''));
           db.orders.forEach((o) => {
             o.customer = '';
             o.log = o.log.map((e) => ({ ...e, detail: '' }));
@@ -260,6 +268,7 @@
         }
         db.parts = res.parts;
         product.ready = (product.ready || 0) + Math.floor(Number(qty));
+        logReady(db, product, Math.floor(Number(qty)), 'montagem', '');
         writeDb(db);
       },
 
@@ -481,7 +490,9 @@
         const o = db.orders.find((x) => x.id === id);
         if (!o) throw new Error('Pedido não encontrado.');
         if (o.status !== 'aberto') throw new Error('Só pedidos em andamento podem ser editados.');
-        o.items = orderItems(db, items);
+        const kept = {};
+        o.items.forEach((i) => (kept[i.productId] = i.reserved || 0));
+        o.items = orderItems(db, items).map((i) => ({ ...i, reserved: Math.min(i.qty, kept[i.productId] || 0) }));
         o.customer = String(customer || '').trim();
         o.ref = String(ref || '').trim();
         o.updatedAt = new Date().toISOString();
@@ -501,10 +512,48 @@
           if ((p.ready || 0) < it.qty) short.push(`${it.name} (precisa ${it.qty}, prontos ${p.ready || 0})`);
         }
         if (short.length) throw new Error(`Ainda faltam produtos montados: ${short.join('; ')}.`);
-        for (const it of o.items) db.products.find((x) => x.id === it.productId).ready -= it.qty;
+        for (const it of o.items) {
+          const p = db.products.find((x) => x.id === it.productId);
+          p.ready -= it.qty;
+          logReady(db, p, -it.qty, 'pedido', `Pedido #${o.num}`);
+        }
         o.status = 'concluido';
         o.updatedAt = new Date().toISOString();
         o.log.push({ at: o.updatedAt, by: me().name || '', action: 'finalizado', detail: '' });
+        writeDb(db);
+      },
+      /** Ajuste manual dos montados (gerente): delta positivo = entrou, negativo = saiu. */
+      async adjustReady(productId, delta, note) {
+        needManager();
+        const db = readDb();
+        const p = db.products.find((x) => x.id === productId);
+        if (!p) throw new Error('Produto não encontrado.');
+        delta = Math.trunc(Number(delta));
+        if (!delta) throw new Error('Informe uma quantidade diferente de zero.');
+        if (delta < 0 && !String(note || '').trim()) throw new Error('Informe o motivo da saída.');
+        if ((p.ready || 0) + delta < 0) throw new Error(`Só há ${p.ready || 0} montado(s) de "${p.name}"; não dá para tirar ${-delta}.`);
+        p.ready = (p.ready || 0) + delta;
+        logReady(db, p, delta, 'ajuste', String(note || '').trim());
+        writeDb(db);
+      },
+      /** Reserva montados para um item do pedido (total reservado; 0 libera). */
+      async reserveOrderItem(orderId, productId, qty) {
+        needManager();
+        const db = readDb();
+        const o = db.orders.find((x) => x.id === orderId);
+        if (!o) throw new Error('Pedido não encontrado.');
+        if (o.status !== 'aberto') throw new Error('Só pedidos em andamento aceitam reserva.');
+        const it = o.items.find((i) => i.productId === productId);
+        if (!it) throw new Error('Este produto não está no pedido.');
+        qty = Math.trunc(Number(qty));
+        if (!(qty >= 0)) throw new Error('Informe uma quantidade a partir de zero.');
+        if (qty > it.qty) throw new Error(`O pedido só precisa de ${it.qty} unidade(s) de "${it.name}".`);
+        const p = db.products.find((x) => x.id === productId);
+        const other = db.orders.filter((x) => x.status === 'aberto' && x.id !== orderId).reduce((s, x) => s + (x.items.find((i) => i.productId === productId)?.reserved || 0), 0);
+        if (qty + other > ((p && p.ready) || 0)) throw new Error(`Só há ${Math.max(((p && p.ready) || 0) - other, 0)} montado(s) livre(s) de "${it.name}" (os outros já estão reservados em outros pedidos).`);
+        it.reserved = qty;
+        o.updatedAt = new Date().toISOString();
+        o.log.push({ at: o.updatedAt, by: me().name || '', action: qty === 0 ? 'reserva liberada' : 'reservado', detail: `${qty} un. de ${it.name}` });
         writeDb(db);
       },
       async cancelOrder(id, reason) {
@@ -527,6 +576,7 @@
         fresh.receipts = [];
         fresh.priceLog = [];
         fresh.orders = fresh.orders || [];
+        fresh.readyLog = [];
         writeDb(fresh);
       },
       async exportJson() {
@@ -539,6 +589,7 @@
         d.receipts = Array.isArray(d.receipts) ? d.receipts : [];
         d.priceLog = Array.isArray(d.priceLog) ? d.priceLog : [];
         d.orders = Array.isArray(d.orders) ? d.orders : [];
+        d.readyLog = Array.isArray(d.readyLog) ? d.readyLog : [];
         writeDb(d);
       },
     };

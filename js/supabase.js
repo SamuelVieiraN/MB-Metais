@@ -226,7 +226,7 @@
 
       async load() {
         const manager = isManager();
-        const [parts, products, bom, moves, costs, prices, counts, receipts, plog, orders] = await Promise.all([
+        const [parts, products, bom, moves, costs, prices, counts, receipts, plog, orders, rlog] = await Promise.all([
           getAll('parts', 'select=id,code,name,stock,min,photo_url&order=name.asc'),
           getAll('products', 'select=id,code,name,category,photo_url,guide,ready&order=name.asc'),
           getAll('bom', 'select=product_id,part_id,qty'),
@@ -237,6 +237,7 @@
           api('/rest/v1/rpc/list_receipts', { method: 'POST', body: { p_limit: 100 } }),
           manager ? api('/rest/v1/rpc/list_price_log', { method: 'POST', body: { p_limit: 300 } }) : [],
           api('/rest/v1/rpc/list_orders', { method: 'POST', body: { p_limit: 100 } }),
+          api('/rest/v1/rpc/list_ready_log', { method: 'POST', body: { p_limit: 100 } }),
         ]);
         const costOf = {};
         costs.forEach((c) => (costOf[c.part_id] = Number(c.cost)));
@@ -274,9 +275,10 @@
             customer: o.customer,
             ref: o.ref,
             status: o.status,
-            items: (o.items || []).map((i) => ({ productId: i.product_id, name: i.name, code: i.code || '', qty: i.qty })),
+            items: (o.items || []).map((i) => ({ productId: i.product_id, name: i.name, code: i.code || '', qty: i.qty, reserved: i.reserved || 0 })),
             log: o.log || [],
           })),
+          readyLog: (rlog || []).map((l) => ({ id: l.id, date: l.created_at, productId: l.product_id, name: l.product_name, delta: l.delta, kind: l.kind, note: l.note || '', who: l.user_name })),
           priceLog: (plog || []).map((l) => ({
             id: l.id,
             date: l.created_at,
@@ -410,6 +412,12 @@
       },
       async finishOrder(id) {
         await rpc('finish_order', { p_id: id });
+      },
+      async adjustReady(productId, delta, note) {
+        await rpc('adjust_ready', { p_product: productId, p_delta: Math.trunc(Number(delta)), p_note: note || '' });
+      },
+      async reserveOrderItem(orderId, productId, qty) {
+        await rpc('reserve_order_item', { p_order: orderId, p_product: productId, p_qty: Math.trunc(Number(qty)) });
       },
       async cancelOrder(id, reason) {
         await rpc('cancel_order', { p_id: id, p_reason: reason || '' });

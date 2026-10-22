@@ -21,6 +21,7 @@
     tab: 'mostruario',
     filter: '',
     partFilter: '',
+    prodFilter: '',
     category: '',
     simPlan: {},
     tabs: [],
@@ -123,7 +124,8 @@
   async function enter(user) {
     App.user = user;
     App.tab = 'mostruario';
-    App.filter = App.partFilter = App.category = '';
+    App.filter = App.partFilter = App.category = App.prodFilter = '';
+    App.mtSearch = '';
     App.simPlan = {};
     App.buyPlan = {};
     App.countInputs = {};
@@ -546,11 +548,14 @@
   // =====================================================================
   //  Produtos
   // =====================================================================
-  function viewProdutos() {
+  function prodCardsHtml() {
     const manager = App.isManager();
     const byId = L.partsById(App.state.parts);
     const stock = L.stockMap(App.state.parts);
-    const cards = App.state.products
+    const q = App.prodFilter.trim().toLowerCase();
+    const list = App.state.products.filter((p) => !q || [p.name, p.code, p.category].join(' ').toLowerCase().includes(q));
+    if (!list.length) return `<div class="empty card" style="grid-column:1/-1">${App.state.products.length ? 'Nenhum produto encontrado para essa busca.' : 'Nenhum produto cadastrado.'}</div>`;
+    return list
       .map((p) => {
         const { max } = L.maxProducible(p, stock);
         const items = p.bom
@@ -587,21 +592,29 @@
         </article>`;
       })
       .join('');
+  }
+
+  function viewProdutos() {
+    const manager = App.isManager();
     return `
       <section class="page-head">
         <div>
           <h1>Produtos</h1>
           <p class="muted">Cada produto final tem uma ficha técnica: as peças e quantas entram em uma unidade. É ela que alimenta o mostruário e a simulação.</p>
         </div>
-        <div class="actions">${manager ? `<button class="btn primary" data-action="new-product">${icons.plus} Novo produto</button>` : ''}</div>
+        <div class="actions">
+          <input class="search" id="prod-filter" type="search" placeholder="Buscar por nome, código ou categoria…" value="${esc(App.prodFilter)}" aria-label="Buscar produto" />
+          ${manager ? `<button class="btn primary" data-action="new-product">${icons.plus} Novo produto</button>` : ''}
+        </div>
       </section>
-      <div class="grid">${cards || '<div class="empty card" style="grid-column:1/-1">Nenhum produto cadastrado.</div>'}</div>`;
+      <div class="grid" id="prod-grid">${prodCardsHtml()}</div>`;
   }
 
 
   // =====================================================================
   //  Guia de montagem (para o operador): foto do resultado, peças e passo a passo
   // =====================================================================
+  App.openGuide = (id) => openGuide(id);
   function openGuide(productId) {
     const p = App.state.products.find((x) => x.id === productId);
     if (!p) return;
@@ -680,10 +693,7 @@
       <label>Preço de venda (R$)
         <input name="price" type="number" min="0" step="0.01" inputmode="decimal" value="${editing ? editing.price : 0}" />
       </label>
-      ${editing ? `<label>Montados em estoque (prontos)
-        <input name="ready" type="number" min="0" step="1" inputmode="numeric" value="${editing.ready || 0}" />
-        <small class="hint">Normalmente muda sozinho (montagem soma, pedido finalizado baixa). Use para corrigir uma contagem.</small>
-      </label>` : ''}
+
       <label>Passo a passo da montagem (um passo por linha)
         <textarea name="guide" rows="6" maxlength="3000" placeholder="1. Separe as peças...&#10;2. Passe a fita veda-rosca...">${esc(editing && editing.guide ? editing.guide.join('\n') : '')}</textarea>
       </label>
@@ -714,7 +724,6 @@
         category: String(fd.get('category') || '').trim() || 'Sem categoria',
         price,
         bom,
-        ...(editing && Math.floor(Number(fd.get('ready')) || 0) !== (editing.ready || 0) ? { ready: Math.floor(Number(fd.get('ready')) || 0) } : {}),
         guide: String(fd.get('guide') || '').split('\n').map((x) => x.replace(/^\s*\d+\s*[.)-]\s*/, '').trim()).filter(Boolean),
       };
       await App.commit(() => App.store.saveProducts([item]));
@@ -1175,6 +1184,10 @@
         App.filter = t.value;
         const grid = $('#grid');
         if (grid) grid.innerHTML = cardsHtml();
+      } else if (t.id === 'prod-filter') {
+        App.prodFilter = t.value;
+        const grid = $('#prod-grid');
+        if (grid) grid.innerHTML = prodCardsHtml();
       } else if (t.id === 'part-filter') {
         App.partFilter = t.value;
         const body = $('#parts-body');

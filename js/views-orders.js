@@ -42,7 +42,7 @@
         const cls = !open ? '' : l.missing === 0 ? 'ok' : l.have > 0 ? 'warn' : 'bad';
         const label = !open ? (o.status === 'concluido' ? 'entregue' : '–') : l.missing === 0 ? 'montado' : l.have > 0 ? `faltam ${int(l.missing)}` : 'não montado';
         return `<tr>
-          <td>${esc(l.name)}${l.code ? `<br><small class="muted">${esc(l.code)}</small>` : ''}${l.gone ? ' <span class="pill bad">produto removido</span>' : ''}</td>
+          <td><div class="ord-prod">${l.gone ? '' : `<button type="button" class="guide-btn" data-action="or-guide" data-id="${l.productId}" title="Abrir o guia de montagem deste produto" aria-label="Abrir guia de montagem de ${esc(l.name)}">${icons.file}</button>`}<span>${esc(l.name)}${l.code ? `<br><small class="muted">${esc(l.code)}</small>` : ''}${l.reserved ? ` <span class="pill ready">${int(l.reserved)} reservado${l.reserved === 1 ? '' : 's'}</span>` : ''}${l.gone ? ' <span class="pill bad">produto removido</span>' : ''}</span></div></td>
           <td class="right num">${int(l.qty)}</td>
           <td class="right num"><b>${int(l.have)}</b></td>
           <td class="right"><span class="pill ${cls}">${label}</span></td>
@@ -183,6 +183,7 @@
 
   Object.assign(App.actions, {
     'or-new': () => openForm(null),
+    'or-guide': (id) => App.openGuide(id),
     'or-edit': (id) => {
       const o = find(id);
       if (o && o.status === 'aberto') openForm(o);
