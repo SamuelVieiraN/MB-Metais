@@ -13,14 +13,14 @@ Funciona em **dois modos**, escolhidos pelo arquivo `js/config.js`:
 | --- | --- |
 | **Mostruário** | Catálogo com foto: quanto dá para montar de cada produto, qual peça limita, alertas. |
 | **Peças** | Estoque, mínimo, código, foto, entradas e saídas. |
-| **Produtos** | Ficha técnica, foto e registro de montagem (desconta as peças). |
+| **Produtos** | Ficha técnica, foto do produto montado, **Guia de montagem** (foto do resultado, checklist de peças e passo a passo) e registro de montagem (desconta as peças). |
 | **Recebimento** | Chegou mercadoria (pela nota fiscal)? Qualquer pessoa registra o lote; o gerente autoriza e só então entra no estoque. Fica o registro: Aguardando autorização, Concluído, Concluído (editado) ou Excluído, com motivo. |
 | **Reposição** | Lista de compras: o que falta para o mínimo e, se quiser, para uma meta de produção. Copia a lista ou baixa em Excel. |
 | **Simulação** | Quanto montar e o que sobra/falta, sem mexer no estoque. |
 | **Conferência** | Contagem de estoque: qualquer pessoa conta às cegas, o gerente vê as diferenças e aprova o ajuste. |
 | **Planilhas** | Só gerente: exportar tudo para Excel (com ou sem valores) e importar uma planilha para atualizar. |
 | **Histórico** | Entradas, saídas e montagens, com quem fez. O gerente pode estornar um lançamento errado (o estorno fica registrado). |
-| **Financeiro** | Custo, preço, lucro, margem. Só gerente. |
+| **Financeiro** | Custo, preço, lucro, margem e **auditoria de custos e preços** (quem mudou, de quanto para quanto, de onde veio; alerta de aumento de 10% ou mais). Só gerente. |
 | **Usuários** | Só gerente, só no modo online: nome, perfil, ativar/desativar. |
 
 ### Perfis
@@ -61,8 +61,12 @@ Se o `schema.sql` já foi rodado antes, rode as migrações que faltam, em ordem
 1. `supabase/migracao-2-historico.sql`
 2. `supabase/migracao-3-estorno-conferencia.sql` (estorno, reposição e conferência)
 3. `supabase/migracao-4-recebimento.sql` (recebimento por lote)
+4. `supabase/migracao-5-auditoria-guia.sql` (auditoria de custos, custo de compra no recebimento, guia de montagem)
 
 Antes de publicar o site novo, rode a migração; se o site subir antes, as telas dão erro até ela rodar.
+
+### Estoque fictício para demonstração
+O site já vem com 49 peças e 17 produtos de exemplo (torneiras, duchas e chuveiros), com ficha técnica, guia de montagem e foto ilustrativa. No modo demonstração ele aparece sozinho. No modo online, o gerente usa **Planilhas > Estoque fictício > Carregar** (e **Remover** antes de lançar o estoque real).
 
 ### Aviso sobre o modo demonstração
 As senhas de demonstração (`gerente@mbmetais.demo`) estão no código público e os dados ficam só no navegador. É para mostrar o sistema, **não para dados reais**.
@@ -87,7 +91,8 @@ Suba o **conteúdo** da pasta (não o .zip) para o repositório. Na Vercel: *Add
 index.html            página única (login + app)
 css/style.css         visual
 js/config.js          liga o modo online (vazio = demonstração)
-js/data.js            dados de exemplo
+js/data.js            estoque fictício (49 peças, 17 produtos)
+img/demo/             fotos ilustrativas dos produtos montados
 js/logic.js           regras de cálculo
 js/app.js             telas, abas e login
 js/store.js           armazenamento do modo demonstração
@@ -101,7 +106,7 @@ js/views-extra.js     abas Reposição e Conferência
 js/views-recebimento.js aba Recebimento
 js/images.js          redução das fotos antes de guardar
 supabase/schema.sql   tabelas, regras de acesso e funções do banco
-tests/                testes
+tests/                testes (fixture-data.js = dados pequenos fixos dos testes)
 ```
 
 ## Próximos passos sugeridos
