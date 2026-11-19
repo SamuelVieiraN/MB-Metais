@@ -25,6 +25,7 @@
     ['cancelado', 'Cancelados'],
     ['todos', 'Todos'],
   ];
+  const dueTxt = (d) => (d ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '');
   const dt = (iso) => new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
   const matches = (o) => App.orFilter === 'todos' || (App.orFilter === 'abertos' ? o.status === 'aberto' : o.status === App.orFilter);
 
@@ -74,7 +75,7 @@
       }
     }
     return `<details class="changes rc-card" ${open ? 'open' : ''}>
-      <summary><b>#${o.num}</b> · ${dt(o.date)}${manager && o.customer ? ` · ${esc(o.customer)}` : ''}${o.ref ? ` · ${esc(o.ref)}` : ''}
+      <summary><b>#${o.num}</b> · ${dt(o.date)}${manager && o.customer ? ` · ${esc(o.customer)}` : ''}${o.ref ? ` · ${esc(o.ref)}` : ''}${o.due ? ` · <span class="due">entrega ${dueTxt(o.due)}</span>` : ''}
         <span class="pill ${st.pill}">${st.label}</span>${open ? ` <span class="muted">${int(pr.have)} de ${int(pr.total)} montados</span>` : ''}</summary>
       <div style="padding:0 14px 14px">
         ${open || o.status === 'concluido' ? `<div class="ord-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${o.status === 'concluido' ? 100 : pr.pct}"><span class="${pr.complete || o.status === 'concluido' ? 'full' : ''}" style="width:${o.status === 'concluido' ? 100 : pr.pct}%"></span></div>` : ''}
@@ -105,6 +106,7 @@
           <td class="num"><b>#${o.num}</b>${o.ref ? `<br><small class="muted">${esc(o.ref)}</small>` : ''}</td>
           <td>${what}${manager && o.customer ? `<br><small class="muted">${esc(o.customer)}</small>` : ''}</td>
           <td class="num">${dt(o.date)}</td>
+          <td class="num">${o.due ? dueTxt(o.due) : '–'}</td>
           <td><span class="pill ${st.pill}">${st.label}</span></td>
           <td class="num">${o.status !== 'aberto' && end ? dt(end.at) : '–'}</td>
         </tr>`;
@@ -113,7 +115,7 @@
     return `<details class="recent" open>
       <summary><b>Últimos 5 pedidos</b> <span class="muted">consulta rápida: o que foi pedido, situação e datas</span></summary>
       <div class="table-wrap"><table>
-        <thead><tr><th>Pedido</th><th>O que foi pedido</th><th>Pedido em</th><th>Situação</th><th>Finalizado em</th></tr></thead>
+        <thead><tr><th>Pedido</th><th>O que foi pedido</th><th>Pedido em</th><th>Entrega</th><th>Situação</th><th>Finalizado em</th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>
     </details>`;
@@ -175,6 +177,9 @@
       <label>Referência do pedido (opcional)
         <input name="ref" type="text" maxlength="60" placeholder="Ex.: Pedido 1234" value="${editing ? esc(order.ref) : ''}" />
       </label>
+      <label>Prazo de entrega ao cliente (opcional)
+        <input name="due" type="date" value="${editing && order.due ? esc(order.due) : ''}" />
+      </label>
       <div>
         <strong style="font-size:.9rem">Produtos e quantidades</strong>
         <div id="or-rows" style="margin-top:6px">${rows}</div>
@@ -195,7 +200,7 @@
         }
         const items = Object.keys(merged).map((productId) => ({ productId, qty: merged[productId] }));
         if (!items.length) return { error: 'Adicione ao menos um produto.' };
-        const payload = { customer: String(fd.get('customer') || ''), ref: String(fd.get('ref') || ''), items };
+        const payload = { customer: String(fd.get('customer') || ''), ref: String(fd.get('ref') || ''), due: String(fd.get('due') || ''), items };
         if (editing) await App.commit(() => App.store.editOrder(order.id, payload));
         else await App.commit(() => App.store.createOrder(payload));
         toast(editing ? 'Pedido atualizado.' : 'Pedido criado.');

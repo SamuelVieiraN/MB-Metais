@@ -8,7 +8,7 @@
 
   const App = root.App;
   const L = root.Logic;
-  const { esc, int } = root.UI;
+  const { esc, int, icons } = root.UI;
 
   function toBuild() {
     const { products, orders } = App.state;
@@ -64,6 +64,24 @@
       .join('')}</div>`;
   }
 
+  /** Próximas entregas (pedidos em andamento com prazo), com a barra de quanto já está montado. */
+  function agenda() {
+    const rows = (App.orderProgressList ? App.orderProgressList() : []).filter((r) => r.o.due).slice(0, 4);
+    if (!rows.length) return '';
+    return `<div class="card lift hoje-agenda">
+      <div class="hoje-agenda-head"><h2>Próximas entregas</h2><button class="btn small" data-action="go-tab" data-id="calendario">${icons.calendar} Abrir calendário</button></div>
+      ${rows
+        .map(
+          ({ o, pr }) => `<div class="cal-prog" style="--c:${App.calColor(o)}">
+          <div class="cal-prog-top"><span class="cal-dot"></span><b>#${o.num}${o.ref ? ' ' + esc(o.ref) : ''}</b>${App.dueBadge(o)}</div>
+          <div class="ord-bar"><span class="${pr.complete ? 'full' : ''}" style="width:${pr.pct}%;${pr.complete ? '' : 'background:var(--c)'}"></span></div>
+          <small class="muted">${int(pr.have)} de ${int(pr.total)} montados</small>
+        </div>`
+        )
+        .join('')}
+    </div>`;
+  }
+
   function view() {
     const mgr = App.isManager();
     const first = String((App.user && App.user.name) || '').split(' ')[0];
@@ -82,9 +100,10 @@
           <p class="muted">${date}. ${mgr ? 'Aqui estão as coisas que esperam uma decisão sua.' : 'O que você precisa fazer hoje.'}</p>
         </div>
       </section>
+      ${agenda()}
       ${
         mgr
-          ? `<h2>Pendências</h2>${pendingCards()}
+          ? `<h2 style="margin-top:22px">Pendências</h2>${pendingCards()}
              <h2 style="margin-top:22px">Atalhos</h2>
              <div class="hoje-grid">
                ${bigBtn('recebimento', I.box, 'Receber mercadoria', 'Conferir o que chegou')}

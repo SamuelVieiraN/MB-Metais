@@ -275,6 +275,7 @@
             who: o.user_name,
             customer: o.customer,
             ref: o.ref,
+            due: o.due_date || '',
             status: o.status,
             items: (o.items || []).map((i) => ({ productId: i.product_id, name: i.name, code: i.code || '', qty: i.qty, reserved: i.reserved || 0 })),
             log: o.log || [],
@@ -439,11 +440,15 @@
         await rpc('delete_receipt', { p_id: id, p_reason: reason || '' });
       },
 
-      async createOrder({ customer, ref, items }) {
-        await rpc('create_order', { p_customer: customer || '', p_ref: ref || '', p_items: orderRows(items) });
+      async createOrder({ customer, ref, items, due }) {
+        const body = { p_customer: customer || '', p_ref: ref || '', p_items: orderRows(items) };
+        if (due) body.p_due = due;
+        await rpc('create_order', body);
       },
-      async editOrder(id, { customer, ref, items }) {
-        await rpc('edit_order', { p_id: id, p_customer: customer || '', p_ref: ref || '', p_items: orderRows(items) });
+      async editOrder(id, { customer, ref, items, due }) {
+        const body = { p_id: id, p_customer: customer || '', p_ref: ref || '', p_items: orderRows(items) };
+        if (due) body.p_due = due;
+        await rpc('edit_order', body);
       },
       async finishOrder(id) {
         await rpc('finish_order', { p_id: id });

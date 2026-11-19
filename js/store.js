@@ -9,6 +9,22 @@
   const L = root.Logic;
   const KEY = 'estoque-torneiras:v3';
   const clone = (o) => JSON.parse(JSON.stringify(o));
+
+  /** Os pedidos de demonstração ganham datas relativas a hoje (para o calendário não ficar vazio). */
+  const DEMO_DATES = { or01: [9, 5], or02: [6, 11], or03: [2, 20] };
+  const ymdLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  function rebaseDemo(db) {
+    const now = new Date();
+    (db.orders || []).forEach((o) => {
+      const k = DEMO_DATES[o.id];
+      if (!k) return;
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - k[0], 9, 30);
+      o.date = o.updatedAt = d.toISOString();
+      (o.log || []).forEach((e) => (e.at = d.toISOString()));
+      o.due = ymdLocal(new Date(now.getFullYear(), now.getMonth(), now.getDate() + k[1]));
+    });
+  }
+  root.demoDueOffsets = (id) => (DEMO_DATES[id] ? DEMO_DATES[id][1] : null);
   const uuid = () => root.UI.uuid();
 
   function normProduct(p) {
@@ -42,6 +58,7 @@
     fresh.receipts = [];
     fresh.priceLog = [];
     fresh.orders = fresh.orders || [];
+    rebaseDemo(fresh);
     fresh.readyLog = [];
     fresh.products.forEach(normProduct);
     return fresh;
@@ -502,7 +519,7 @@
 
       // ---- Pedidos de clientes ----
       /** items: [{ productId, qty }] */
-      async createOrder({ customer, ref, items }) {
+      async createOrder({ customer, ref, items, due }) {
         needManager();
         const db = readDb();
         const out = orderItems(db, items);
@@ -514,13 +531,14 @@
           who: me().name || '',
           customer: String(customer || '').trim(),
           ref: String(ref || '').trim(),
+          due: /^\d{4}-\d{2}-\d{2}$/.test(due || '') ? due : '',
           status: 'aberto',
           items: out,
           log: [{ at: new Date().toISOString(), by: me().name || '', action: 'criado', detail: '' }],
         });
         writeDb(db);
       },
-      async editOrder(id, { customer, ref, items }) {
+      async editOrder(id, { customer, ref, items, due }) {
         needManager();
         const db = readDb();
         const o = db.orders.find((x) => x.id === id);
@@ -531,6 +549,7 @@
         o.items = orderItems(db, items).map((i) => ({ ...i, reserved: Math.min(i.qty, kept[i.productId] || 0) }));
         o.customer = String(customer || '').trim();
         o.ref = String(ref || '').trim();
+        o.due = /^\d{4}-\d{2}-\d{2}$/.test(due || '') ? due : '';
         o.updatedAt = new Date().toISOString();
         o.log.push({ at: o.updatedAt, by: me().name || '', action: 'editado', detail: '' });
         writeDb(db);
@@ -634,6 +653,7 @@
         fresh.receipts = [];
         fresh.priceLog = [];
         fresh.orders = fresh.orders || [];
+        rebaseDemo(fresh);
         fresh.readyLog = [];
         fresh.products.forEach(normProduct);
         writeDb(fresh);

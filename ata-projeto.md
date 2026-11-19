@@ -84,6 +84,17 @@ Mostruário com fotos, Peças, Produtos (ficha técnica e montagem), Simulação
    - Testado: SQL da migração 8 (banco novo, migrado 2→8, repetida); e2e 60/26/22/26/23/23 + carrossel 22 + navegação/Hoje/Movimentações 34. NÃO testado em Supabase real.
    - STATUS: entregue em 22/10/2026, aguardando rodar a migração 8 e publicar os arquivos.
 
+12. Visual novo: menu lateral, tema claro/escuro, calendário e prazo de entrega (pedido de 19/11/2026, inspirado em template comercial, sem copiar código dele). Exige `supabase/migracao-9-prazo-pedidos.sql` (compatível com o site antigo: pode rodar antes ou depois de publicar, mas rode).
+   - Casca: menu lateral fixo à esquerda (gradiente verde-azulado), botão para recolher só em ícones (lembrado no navegador, chave `mb:menu`), gaveta no celular, painel do perfil + Sair no pé do menu; topo fino com caminho (ex.: Estoque > Peças), botão de tema e selo Demonstração. As subabas (Peças/Recebimento/…) viram pílulas abaixo do topo.
+   - Tema claro/escuro: botão no topo, escolha lembrada (`mb:tema`), segue o aparelho na primeira vez. Cores em variáveis no `:root` e `:root[data-theme="dark"]` do css/style.css.
+   - Efeitos: item ativo do menu com barra luminosa e destaque; elevação ao passar o mouse (botões, cartões clicáveis, chips, dias do calendário); "onda" no clique; respeita "reduzir movimento" do sistema.
+   - Menu (8 grupos): Hoje · Calendário · Mostruário · Estoque · Produção · Pedidos · Movimentações · Gerência.
+   - Calendário (js/views-calendar.js): mês com cada pedido numa cor (● pedido feito, ⚑ entrega, ✓ finalizado); clicar no dia lista o que há nele; à direita, "Andamento dos pedidos" com barra de montados e quanto falta para a entrega (atrasado / em N dias). Funcionário vê sem nome de cliente. A tela Hoje ganhou "Próximas entregas".
+   - Prazo de entrega: campo opcional no pedido (`orders.due_date`; RPCs create_order/edit_order com `p_due`, list_orders devolve `due_date`). Pedidos de demonstração têm datas relativas a hoje.
+   - Ainda não existe: previsão de chegada de fornecedor (o Recebimento registra só o que já chegou). Sugestão: pedido de compra com previsão, para entrar no calendário.
+   - Testado: SQL da migração 9 (banco novo, migrado do 8, repetida; funcionário não vê cliente); e2e novo de menu/tema/calendário/prazo/celular 46 verificações + regressão 14; testes de lógica e planilhas. NÃO testado em Supabase real (o banco de produção estava na migração 8, sem due_date, quando conferido em 19/11/2026).
+   - STATUS: entregue em 19/11/2026, aguardando rodar a migração 9 e publicar os arquivos.
+
 ## Pendências / próximos passos
 - Identidade visual da empresa: o usuário vai buscar catálogo/logo (previsto para 16/10) para personalizar cores, logo e rodapé.
 - Habilidade "designer-mb-metais" salva (10 ideias de visual/cores/estrutura); aplicar quando a logo chegar.
@@ -95,6 +106,7 @@ Mostruário com fotos, Peças, Produtos (ficha técnica e montagem), Simulação
 - Ideias para discutir com o consultor: conferência de estoque (contagem), guia de montagem para o funcionário, alerta de reposição, relatórios por período, estoque de produto acabado, status do pedido (concluído / saiu para entrega).
 
 ## Lições aprendidas
+- O ambiente de trabalho do Claude pode ser reiniciado e perder os arquivos; a fonte de verdade é o repositório GitHub (SamuelVieiraN/MB-Metais) e este Project. O conector do Supabase está ligado (somente leitura/consulta por padrão; mudanças em produção só com aval do dono).
 - Fotos do estoque fictício são ilustrações geradas por código; trocar por fotos reais dos produtos (botão da câmera no card) quando houver.
 - Ordem de atualização quando há mudança no banco: rodar a migração no Supabase E publicar os arquivos do site. Se um dos dois ficar para trás, o site mostra erro (ex.: "permission denied for table movements").
 - Ao subir arquivos no GitHub, conferir o endereço da pasta: arquivos JS vão em `js/`, SQL em `supabase/`. Na 3ª atualização eles foram parar na raiz e o site seguiu usando os antigos; foi corrigido movendo para as pastas certas.

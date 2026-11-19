@@ -43,3 +43,7 @@ Regra de todas as ideias: o funcionário nunca vê valores em reais; isso é gar
 - Movimentações (produtos e peças) e últimos 5 pedidos.
 - Várias fotos por produto (catálogo).
 - Ideia futura: barra inferior no celular (D4) agora que há só 6–7 grupos; etiqueta/QR por produto que abre o guia.
+
+## Feito em 19/11/2026 (lote 12)
+- Menu lateral recolhível, tema claro/escuro, efeitos de hover/clique, painel do perfil, calendário de pedidos com andamento, prazo de entrega no pedido.
+- Próximas ideias: previsão de chegada de fornecedores (pedido de compra) no calendário; financeiro do pedido (parcelas, saldo); notificações (atraso de entrega); busca global (Ctrl+K) no topo.

@@ -233,7 +233,9 @@
       );
       for (const o of [...(D.orders || [])].reverse()) {
         if ((App.state.orders || []).some((x) => x.ref === o.ref && String(x.customer).startsWith('[Demonstração]'))) continue;
-        await App.store.createOrder({ customer: o.customer, ref: o.ref, items: o.items.map((i) => ({ productId: demoId(i.productId), qty: i.qty })) });
+        const off = root.demoDueOffsets ? root.demoDueOffsets(o.id) : null;
+        const due = off === null ? '' : (() => { const d = new Date(); d.setDate(d.getDate() + off); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
+        await App.store.createOrder({ customer: o.customer, ref: o.ref, due, items: o.items.map((i) => ({ productId: demoId(i.productId), qty: i.qty })) });
       }
       for (const p of D.products) {
         const have = ((App.state.products.find((x) => x.id === demoId(p.id)) || {}).photos || []).length;

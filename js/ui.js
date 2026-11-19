@@ -43,6 +43,21 @@
     file: ico('<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M9 13h6M9 17h6"/>'),
     check: ico('<path d="m5 12.5 4.5 4.5L19 7.5"/>'),
     alert: ico('<path d="M12 4 2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17.4v.1"/>'),
+    sun: ico('<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/>'),
+    moon: ico('<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5z"/>'),
+    menu: ico('<path d="M4 7h16M4 12h16M4 17h16"/>'),
+    panel: ico('<rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M9.5 4.5v15"/>'),
+    home: ico('<path d="M4 11 12 4l8 7"/><path d="M6 10v9h4.5v-5h3v5H18v-9"/>'),
+    store: ico('<path d="M4 9.5 5.5 4h13L20 9.5"/><path d="M4 9.5a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0"/><path d="M5.5 12.5V20h13v-7.5"/><path d="M10 20v-4.5h4V20"/>'),
+    box: ico('<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>'),
+    tool: ico('<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.4 2.4-2.6-.6-.6-2.6z"/>'),
+    clipboard: ico('<rect x="5" y="4.5" width="14" height="16.5" rx="2.5"/><path d="M9 4.5h6V7H9z"/><path d="M8.5 12h7M8.5 16h5"/>'),
+    swap: ico('<path d="M7 5 3.5 8.5 7 12"/><path d="M3.5 8.5H17"/><path d="m17 12 3.5 3.5L17 19"/><path d="M20.5 15.5H7"/>'),
+    shield: ico('<path d="M12 3 4.5 6v5.5c0 4.6 3.1 8 7.5 9.5 4.4-1.5 7.5-4.9 7.5-9.5V6z"/><path d="m9 12 2.2 2.2L15.5 10"/>'),
+    calendar: ico('<rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>'),
+    chevL: ico('<path d="m14.5 6-6 6 6 6"/>'),
+    chevR: ico('<path d="m9.5 6 6 6-6 6"/>'),
+    chevD: ico('<path d="m6 9.5 6 6 6-6"/>'),
   };
 
   // ---------- aviso rápido ----------

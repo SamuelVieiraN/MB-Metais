@@ -155,6 +155,7 @@
     const u = App.user;
     if (!u) {
       $('#userbox').innerHTML = '';
+      $('#top-right').innerHTML = '';
       return;
     }
     const initials = String(u.name || u.email || '?')
@@ -165,13 +166,52 @@
       .join('')
       .toUpperCase();
     $('#userbox').innerHTML = `
-      ${App.auth.isDemo ? '<span class="mode-badge" title="Os dados ficam só neste navegador">Demonstração</span>' : ''}
-      <div class="user-chip">
+      <div class="profile">
         <span class="avatar">${esc(initials)}</span>
-        <span class="who"><b>${esc(u.name)}</b><small>${roleLabel(u.role)}</small></span>
+        <span class="who sb-label"><b>${esc(u.name)}</b><small>${roleLabel(u.role)}</small></span>
       </div>
-      <button class="btn-ghost-light" data-action="logout">${icons.logout}<span>Sair</span></button>`;
+      <button class="side-link" data-action="logout" title="Sair">${icons.logout}<span class="sb-label">Sair</span></button>`;
+    renderTopRight();
   }
+
+  // ---------- tema (claro/escuro) e menu recolhido ----------
+  const store = {
+    get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* ignora */ } },
+  };
+  const isDark = () => document.documentElement.dataset.theme === 'dark';
+  function applyTheme(dark, save) {
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    const m = document.querySelector('meta[name=theme-color]');
+    if (m) m.setAttribute('content', dark ? '#0b171c' : '#084b58');
+    if (save) store.set('mb:tema', dark ? 'escuro' : 'claro');
+    renderTopRight();
+  }
+  function renderTopRight() {
+    const el = $('#top-right');
+    if (!el || !App.user) return;
+    el.innerHTML = `
+      ${App.auth.isDemo ? '<span class="mode-badge" title="Os dados ficam só neste navegador">Demonstração</span>' : ''}
+      <button class="icon-top" data-action="theme-toggle" aria-label="${isDark() ? 'Usar tema claro' : 'Usar tema escuro'}" title="${isDark() ? 'Tema claro' : 'Tema escuro'}">${isDark() ? icons.sun : icons.moon}</button>`;
+  }
+  const isMobile = () => window.matchMedia('(max-width: 900px)').matches;
+  function renderSbToggle() {
+    const min = document.documentElement.classList.contains('sb-min');
+    const b = $('#sb-toggle');
+    if (b) {
+      b.innerHTML = icons.panel;
+      b.setAttribute('aria-label', min ? 'Expandir menu' : 'Recolher menu');
+      b.setAttribute('aria-expanded', String(!min));
+    }
+    const o = $('#sb-open');
+    if (o) o.innerHTML = icons.menu;
+  }
+  function setSidebarMin(min) {
+    document.documentElement.classList.toggle('sb-min', min);
+    store.set('mb:menu', min ? 'min' : 'max');
+    renderSbToggle();
+  }
+  const setDrawer = (open) => document.body.classList.toggle('sb-open', open);
 
   // =====================================================================
   //  Abas e renderização
@@ -181,13 +221,14 @@
 
   // Menu em dois níveis: grupos no topo; dentro do grupo ativo, as telas dele.
   const GROUPS = [
-    { id: 'hoje', label: 'Hoje', tabs: ['hoje'] },
-    { id: 'mostruario', label: 'Mostruário', tabs: ['mostruario'] },
-    { id: 'estoque', label: 'Estoque', tabs: ['pecas', 'recebimento', 'reposicao', 'conferencia'] },
-    { id: 'producao', label: 'Produção', tabs: ['produtos', 'montados', 'simulacao'] },
-    { id: 'pedidos', label: 'Pedidos', tabs: ['pedidos'] },
-    { id: 'movimentacoes', label: 'Movimentações', tabs: ['movimentacoes'] },
-    { id: 'gerencia', label: 'Gerência', tabs: ['financeiro', 'planilhas', 'usuarios'], lock: true },
+    { id: 'hoje', label: 'Hoje', icon: 'home', tabs: ['hoje'] },
+    { id: 'calendario', label: 'Calendário', icon: 'calendar', tabs: ['calendario'] },
+    { id: 'mostruario', label: 'Mostruário', icon: 'store', tabs: ['mostruario'] },
+    { id: 'estoque', label: 'Estoque', icon: 'box', tabs: ['pecas', 'recebimento', 'reposicao', 'conferencia'] },
+    { id: 'producao', label: 'Produção', icon: 'tool', tabs: ['produtos', 'montados', 'simulacao'] },
+    { id: 'pedidos', label: 'Pedidos', icon: 'clipboard', tabs: ['pedidos'] },
+    { id: 'movimentacoes', label: 'Movimentações', icon: 'swap', tabs: ['movimentacoes'] },
+    { id: 'gerencia', label: 'Gerência', icon: 'shield', tabs: ['financeiro', 'planilhas', 'usuarios'], lock: true },
   ];
   App.groups = () => {
     const vis = visibleTabs();
@@ -208,20 +249,20 @@
     const groups = App.groups();
     const cur = groups.find((g) => g.tabs.some((t) => t.id === App.tab)) || groups[0];
     App.lastInGroup[cur.id] = App.tab;
-    $('#tabs').innerHTML =
-      '<div class="tabs-row">' +
-      groups
-        .map((g) => {
-          const target = g.id === cur.id ? App.tab : App.lastInGroup[g.id] || g.tabs[0].id;
-          return `<button class="tab" data-tab="${target}" data-group="${g.id}" ${g.id === cur.id ? 'aria-current="page"' : ''}>${g.label}</button>`;
-        })
-        .join('') +
-      '</div>' +
-      (cur.tabs.length > 1
+    $('#tabs').innerHTML = groups
+      .map((g) => {
+        const target = g.id === cur.id ? App.tab : App.lastInGroup[g.id] || g.tabs[0].id;
+        return `<button class="tab" data-tab="${target}" data-group="${g.id}" title="${g.label}" ${g.id === cur.id ? 'aria-current="page"' : ''}>${icons[g.icon] || icons.file}<span class="sb-label">${g.label}</span></button>`;
+      })
+      .join('');
+    $('#subtabs').innerHTML =
+      cur.tabs.length > 1
         ? `<div class="subtabs">${cur.tabs
             .map((t) => `<button class="subtab" data-tab="${t.id}" ${t.id === App.tab ? 'aria-current="page"' : ''}>${t.label}</button>`)
             .join('')}</div>`
-        : '');
+        : '';
+    const tt = $('#top-title');
+    if (tt) tt.innerHTML = `<b>${esc(cur.label)}</b>${cur.tabs.length > 1 ? `<span class="crumb">${icons.chevR}${esc((cur.tabs.find((t) => t.id === App.tab) || {}).label || '')}</span>` : ''}`;
   }
 
   App.render = function (animate) {
@@ -1122,6 +1163,10 @@
     'close-modal': () => closeModal(),
     'close-lightbox': () => $('#lightbox').close(),
     logout: () => logout(),
+    'theme-toggle': () => applyTheme(!isDark(), true),
+    'sb-toggle': () => (isMobile() ? setDrawer(false) : setSidebarMin(!document.documentElement.classList.contains('sb-min'))),
+    'sb-open': () => setDrawer(true),
+    'sb-close': () => setDrawer(false),
     retry: async () => {
       $('#view').innerHTML = `<div class="loading"><span class="spinner"></span> Carregando…</div>`;
       try {
@@ -1282,6 +1327,7 @@
         App.tab = tabBtn.dataset.tab;
         App.render(true);
         window.scrollTo({ top: 0 });
+        setDrawer(false);
         return;
       }
       const btn = e.target.closest('[data-action]');
@@ -1291,6 +1337,20 @@
       Promise.resolve()
         .then(() => fn(btn.dataset.id, btn, e))
         .catch((err) => toast((err && err.message) || 'Algo deu errado.', 'error'));
+    });
+
+    // efeito de "onda" no clique (só enfeite; respeita quem prefere menos movimento)
+    document.addEventListener('pointerdown', (e) => {
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      const el = e.target.closest('.tab, .subtab, .btn, .chip, .hoje-btn, .icon-top, .side-link, .cal-day');
+      if (!el || el.disabled) return;
+      const r = el.getBoundingClientRect();
+      const size = Math.max(r.width, r.height) * 1.6;
+      const s = document.createElement('span');
+      s.className = 'ripple';
+      s.style.cssText = `width:${size}px;height:${size}px;left:${e.clientX - r.left - size / 2}px;top:${e.clientY - r.top - size / 2}px`;
+      el.appendChild(s);
+      setTimeout(() => s.remove(), 650);
     });
 
     document.addEventListener('submit', (e) => {
@@ -1379,6 +1439,7 @@
       });
     }
     bindEvents();
+    renderSbToggle();
     document.body.dataset.screen = 'loading';
     try {
       const user = await App.auth.current();

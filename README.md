@@ -67,6 +67,7 @@ Se o `schema.sql` já foi rodado antes, rode as migrações que faltam, em ordem
 5. `supabase/migracao-6-pedidos.sql` (produto pronto e pedidos de clientes)
 6. `supabase/migracao-7-montados.sql` (aba Montados, histórico de montados, reserva para pedido)
 7. `supabase/migracao-8-fotos-desmontagem.sql` (várias fotos por produto, venda direta e desmontagem)
+8. `supabase/migracao-9-prazo-pedidos.sql` (prazo de entrega nos pedidos, usado pelo calendário)
 
 Antes de publicar o site novo, rode a migração; se o site subir antes, as telas dão erro até ela rodar.
 
@@ -113,10 +114,15 @@ js/views-orders.js    aba Pedidos
 js/views-montados.js  aba Montados
 js/views-moves.js     aba Movimentações
 js/views-hoje.js      tela Hoje
+js/views-calendar.js  aba Calendário
 js/images.js          redução das fotos antes de guardar
 supabase/schema.sql   tabelas, regras de acesso e funções do banco
 tests/                testes (fixture-data.js = dados pequenos fixos dos testes)
 ```
+
+## Visual: menu lateral, tema e calendário
+- Menu lateral com botão para recolher (só ícones). Botão de lua/sol no topo troca entre tema claro e escuro (fica salvo no navegador).
+- **Calendário**: pedidos por cor (feito, entrega, finalizado) e andamento dos pedidos ao lado. O prazo de entrega é preenchido ao criar/editar o pedido.
 
 ## Navegação e telas principais
 - **Hoje**: tela inicial. Funcionário: receber, montar, contar + o que falta montar. Gerente: pendências e atalhos.

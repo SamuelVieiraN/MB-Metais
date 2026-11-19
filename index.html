@@ -7,6 +7,19 @@
     <title>Estoque &amp; Montagem</title>
     <meta name="description" content="Controle de estoque de peças e cálculo de montagem de torneiras, duchas e acessórios." />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b6e7f'/%3E%3Cpath d='M16 6S9.5 13.4 9.5 18a6.5 6.5 0 0 0 13 0C22.5 13.4 16 6 16 6z' fill='%23fff'/%3E%3C/svg%3E" />
+    <script>
+      // aplica o tema antes de desenhar a página (evita piscar)
+      (function () {
+        try {
+          var t = localStorage.getItem('mb:tema');
+          if (t !== 'claro' && t !== 'escuro') t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'escuro' : 'claro';
+          document.documentElement.dataset.theme = t === 'escuro' ? 'dark' : 'light';
+          if (localStorage.getItem('mb:menu') === 'min') document.documentElement.classList.add('sb-min');
+        } catch (e) {
+          document.documentElement.dataset.theme = 'light';
+        }
+      })();
+    </script>
     <link rel="stylesheet" href="css/style.css" />
   </head>
   <body data-screen="loading">
@@ -15,22 +28,34 @@
     <div id="login-screen"></div>
 
     <div id="app">
-      <header class="topbar">
-        <div class="brand">
-          <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
-            <path d="M16 3C16 3 6 14.2 6 20.5a10 10 0 0 0 20 0C26 14.2 16 3 16 3z" fill="currentColor" opacity=".95" />
-            <path d="M11.5 20.8a4.6 4.6 0 0 0 4.2 4.4" fill="none" stroke="#0b4f5c" stroke-width="2" stroke-linecap="round" />
-          </svg>
-          <div>
-            <strong>Estoque &amp; Montagem</strong>
+      <aside id="sidebar" class="sidebar" aria-label="Menu principal">
+        <div class="sb-head">
+          <div class="brand">
+            <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
+              <path d="M16 3C16 3 6 14.2 6 20.5a10 10 0 0 0 20 0C26 14.2 16 3 16 3z" fill="currentColor" opacity=".95" />
+              <path d="M11.5 20.8a4.6 4.6 0 0 0 4.2 4.4" fill="none" stroke="#0b4f5c" stroke-width="2" stroke-linecap="round" />
+            </svg>
+            <strong class="sb-label">Estoque &amp; Montagem</strong>
           </div>
+          <button class="sb-toggle" data-action="sb-toggle" id="sb-toggle" aria-label="Recolher menu" title="Recolher ou expandir o menu"></button>
         </div>
-        <div id="userbox" class="userbox"></div>
-      </header>
-
-      <nav id="tabs" class="tabs" aria-label="Seções"></nav>
-      <main id="view"></main>
-      <footer class="foot" id="foot"></footer>
+        <div class="sb-section sb-label">Menu</div>
+        <nav id="tabs" class="side-nav" aria-label="Seções"></nav>
+        <div class="sb-bottom">
+          <div id="userbox" class="userbox"></div>
+        </div>
+      </aside>
+      <div id="sb-scrim" class="sb-scrim" data-action="sb-close"></div>
+      <div class="shell">
+        <header class="topbar">
+          <button class="icon-top sb-open-btn" data-action="sb-open" aria-label="Abrir menu" id="sb-open"></button>
+          <div class="top-title" id="top-title"></div>
+          <div class="top-right" id="top-right"></div>
+        </header>
+        <div id="subtabs" class="subtabs-wrap"></div>
+        <main id="view"></main>
+        <footer class="foot" id="foot"></footer>
+      </div>
     </div>
 
     <dialog id="modal"></dialog>
@@ -57,6 +82,7 @@
     <script src="js/views-orders.js"></script>
     <script src="js/views-montados.js"></script>
     <script src="js/views-moves.js"></script>
+    <script src="js/views-calendar.js"></script>
     <script src="js/views-hoje.js"></script>
     <script src="js/views-users.js"></script>
     <script>
