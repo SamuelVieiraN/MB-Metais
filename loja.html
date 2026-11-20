@@ -13,23 +13,40 @@
   </head>
   <body class="loja">
     <a class="skip" href="#lj-main">Ir para o conteúdo</a>
+    <div class="lj-util">
+      <div class="lj-wrap">
+        <span id="lj-util-msg">Atendimento direto com a nossa equipe</span>
+        <nav aria-label="Atalhos">
+          <a href="#/conta" data-act="account">Minha conta</a>
+          <a href="privacidade">Privacidade</a>
+          <button class="lj-theme" data-act="theme" id="lj-theme" aria-label="Alternar tema claro e escuro"></button>
+        </nav>
+      </div>
+    </div>
     <header class="lj-top">
-      <a class="lj-brand" href="#/" aria-label="M&B Metais, início">
-        <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
-          <path d="M16 3C16 3 6 14.2 6 20.5a10 10 0 0 0 20 0C26 14.2 16 3 16 3z" fill="currentColor" opacity=".95" />
-          <path d="M11.5 20.8a4.6 4.6 0 0 0 4.2 4.4" fill="none" stroke="#0b4f5c" stroke-width="2" stroke-linecap="round" />
-        </svg>
-        <span><b>M&amp;B Metais</b><small>Torneiras, duchas e acessórios</small></span>
-      </a>
-      <nav class="lj-actions" aria-label="Ações">
-        <button class="icon-top lj" data-act="theme" id="lj-theme" aria-label="Alternar tema claro e escuro"></button>
-        <button class="btn lj-btn" data-act="cart" id="lj-cart" aria-label="Abrir a solicitação"></button>
-        <button class="btn primary lj-btn" data-act="account" id="lj-account"></button>
-      </nav>
+      <div class="lj-wrap lj-head">
+        <a class="lj-brand" href="#/" data-act="home" aria-label="M&B Metais, início">
+          <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
+            <path d="M16 3C16 3 6 14.2 6 20.5a10 10 0 0 0 20 0C26 14.2 16 3 16 3z" fill="currentColor" opacity=".95" />
+            <path d="M11.5 20.8a4.6 4.6 0 0 0 4.2 4.4" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          <span><b>M&amp;B Metais</b><small>Torneiras, duchas e acessórios</small></span>
+        </a>
+        <form class="lj-search" id="lj-searchform" role="search">
+          <input id="lj-q" type="search" placeholder="O que você procura? Busque por nome ou código" aria-label="Buscar produto" autocomplete="off" />
+          <button type="submit" id="lj-go" aria-label="Buscar"></button>
+        </form>
+        <nav class="lj-actions" aria-label="Ações">
+          <button class="lj-act" data-act="account" id="lj-account"></button>
+          <button class="lj-act cart" data-act="cart" id="lj-cart" aria-label="Abrir a solicitação"></button>
+        </nav>
+      </div>
+      <div class="lj-catnav" id="lj-catnav" aria-label="Categorias"></div>
     </header>
 
     <main id="lj-main" tabindex="-1"></main>
     <footer id="lj-foot" class="lj-foot"></footer>
+    <a id="lj-wa" class="lj-wa" hidden target="_blank" rel="noopener" aria-label="Falar pelo WhatsApp"></a>
 
     <dialog id="modal"></dialog>
     <dialog id="confirm" class="confirm"></dialog>

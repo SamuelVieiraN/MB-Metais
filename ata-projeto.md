@@ -102,6 +102,10 @@ Mostruário com fotos, Peças, Produtos (ficha técnica e montagem), Simulação
 - Decisões do dono: Supabase Pro adiado (backup segue manual); Dependabot ligado; cadastro aberto sem aprovação.
 - Pendências: preencher company.js; ajustes no painel do Supabase; revisão jurídica; pentest formal; backup automático; limite do catálogo anônimo.
 
+### Loja online: migração aplicada e novo visual (20/11/2026)
+- Migração 10 aplicada em produção (aval do dono) e teste no banco real com transação revertida: cadastro, solicitação, aprovação (virou pedido) e exclusão de conta ok; cliente não vê estoque/pedidos. Chave pública (publishable) colocada em js/config.js.
+- Visual da loja refeito no estilo de loja virtual (referências: SV Elétrica, Leroy Merlin): fundo branco, faixa superior com botão de tema escuro, cabeçalho com busca grande, menu de categorias, banner, filtros laterais (categoria, pronta entrega, ordenação), cards com foto, rodapé completo, botão de WhatsApp (aparece quando company.js tem o número).
+
 ## Pendências / próximos passos
 - Identidade visual da empresa: o usuário vai buscar catálogo/logo (previsto para 16/10) para personalizar cores, logo e rodapé.
 - Habilidade "designer-mb-metais" salva (10 ideias de visual/cores/estrutura); aplicar quando a logo chegar.

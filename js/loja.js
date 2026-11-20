@@ -34,6 +34,8 @@
   let cartNote = '';
   let q = '';
   let cat = '';
+  let sortBy = 'nome';
+  let onlyReady = false;
   let acTab = 'solicitacoes';
   let myReqs = null;
   let lastCep = '';
@@ -161,22 +163,66 @@
   const isDark = () => document.documentElement.dataset.theme === 'dark';
   function renderTop() {
     const t = $('#lj-theme');
-    if (t) t.innerHTML = isDark() ? icons.sun : icons.moon;
+    if (t) t.innerHTML = `${isDark() ? icons.sun : icons.moon}<span>${isDark() ? 'Tema claro' : 'Tema escuro'}</span>`;
     const c = $('#lj-cart');
-    if (c) c.innerHTML = `${icons.cart} <span>Solicitação</span>${cartCount() ? `<span class="lj-badge" aria-label="${cartCount()} produto(s)">${cartCount()}</span>` : ''}`;
+    if (c) c.innerHTML = `${icons.cart}<span>Solicitação</span>${cartCount() ? `<span class="lj-badge" aria-label="${cartCount()} produto(s)">${cartCount()}</span>` : ''}`;
     const a = $('#lj-account');
-    if (a) a.innerHTML = session && me && me.registered ? `${icons.users} <span>${esc(firstName(me.name))}</span>` : `${icons.users} <span>Entrar</span>`;
+    if (a) a.innerHTML = session && me && me.registered ? `${icons.user}<span><small>Olá,</small>${esc(firstName(me.name))}</span>` : `${icons.user}<span><small>Bem-vindo</small>Entrar ou cadastrar</span>`;
+    const g = $('#lj-go');
+    if (g && !g.innerHTML) g.innerHTML = icons.search;
+    const inp = $('#lj-q');
+    if (inp && inp.value !== q) inp.value = q;
+    const w = $('#lj-wa');
+    if (w) {
+      const num = String(CO.whatsapp || '').replace(/\D/g, '');
+      w.hidden = !num;
+      if (num) {
+        w.href = `https://wa.me/${num.length <= 11 ? '55' + num : num}`;
+        w.innerHTML = `${icons.chat}<span>WhatsApp</span>`;
+      }
+    }
+    const m = $('#lj-util-msg');
+    if (m) m.textContent = CO.phone ? `Atendimento: ${CO.phone}` : 'Atendimento direto com a nossa equipe';
+    renderCatNav();
+  }
+
+  function renderCatNav() {
+    const n = $('#lj-catnav');
+    if (!n) return;
+    const cats = [...new Set((catalog || []).map((p) => p.category).filter(Boolean))].sort((x, y) => x.localeCompare(y, 'pt-BR'));
+    const on = (location.hash || '#/').startsWith('#/conta') ? null : cat;
+    n.innerHTML = cats.length
+      ? `<div class="lj-wrap lj-catrow"><button class="lj-cat ${on === '' ? 'on' : ''}" data-act="cat" data-id="">${icons.menu}<span>Todos os produtos</span></button>${cats
+          .map((c) => `<button class="lj-cat ${on === c ? 'on' : ''}" data-act="cat" data-id="${esc(c)}">${esc(c)}</button>`)
+          .join('')}</div>`
+      : '';
   }
 
   function renderFoot() {
     const co = CO;
-    const contact = [co.phone && `Tel. ${esc(co.phone)}`, co.email && `<a href="mailto:${esc(co.email)}">${esc(co.email)}</a>`].filter(Boolean).join(' · ');
+    const fill = (v) => (v ? esc(v) : '<span class="lj-soon">em breve</span>');
+    const wa = String(co.whatsapp || '').replace(/\D/g, '');
     $('#lj-foot').innerHTML = `
-      <div><b>${esc(co.name || '')}</b> · CNPJ ${esc(co.cnpj || '')}</div>
-      <div>${esc(co.address || '')}</div>
-      ${contact ? `<div>${contact}</div>` : ''}
-      <nav aria-label="Informações legais"><a href="privacidade">Política de Privacidade</a><a href="termos">Termos de Uso</a><a href="cookies">Cookies e armazenamento</a><a href="privacidade#direitos">Seus direitos (LGPD)</a></nav>
-      <div>Os preços e a disponibilidade são confirmados pela empresa ao analisar a sua solicitação. Imagens meramente ilustrativas.</div>`;
+      <div class="lj-trust"><div class="lj-wrap lj-benefits">
+        <div>${icons.shield}<span><b>Cadastro seguro</b>Seus dados protegidos conforme a LGPD</span></div>
+        <div>${icons.clipboard}<span><b>Preço e prazo claros</b>Confirmados com você antes de fechar o pedido</span></div>
+        <div>${icons.chat}<span><b>Atendimento direto</b>Fale com quem fabrica e vende</span></div>
+        <div>${icons.truck}<span><b>Entrega combinada</b>Frete e prazo informados na proposta</span></div>
+      </div></div>
+      <div class="lj-footmain"><div class="lj-wrap lj-cols">
+        <section><h4>${esc(co.name || 'M&B Metais')}</h4><p>CNPJ ${esc(co.cnpj || '')}</p><p>${esc(co.address || '')}</p></section>
+        <section><h4>Atendimento</h4>
+          <p>Telefone: ${fill(co.phone)}</p>
+          <p>E-mail: ${co.email ? `<a href="mailto:${esc(co.email)}">${esc(co.email)}</a>` : fill('')}</p>
+          ${wa ? `<p>WhatsApp: <a href="https://wa.me/${wa.length <= 11 ? '55' + wa : wa}" target="_blank" rel="noopener">${esc(co.whatsapp)}</a></p>` : ''}</section>
+        <section><h4>Comprar</h4>
+          <p><a href="#/" data-act="home">Catálogo</a></p>
+          <p><a href="#/conta" data-act="account">Minha conta</a></p>
+          <p>Como funciona: escolha os produtos, crie sua conta e envie a solicitação.</p></section>
+        <section><h4>Informações legais</h4>
+          <nav aria-label="Informações legais"><a href="privacidade">Política de Privacidade</a><a href="termos">Termos de Uso</a><a href="cookies">Cookies e armazenamento</a><a href="privacidade#direitos">Seus direitos (LGPD)</a></nav></section>
+      </div></div>
+      <div class="lj-copy"><div class="lj-wrap">© ${new Date().getFullYear()} ${esc(co.name || '')}. Todos os direitos reservados. Preços e disponibilidade são confirmados pela empresa ao analisar a sua solicitação. Imagens meramente ilustrativas.</div></div>`;
   }
 
   // ---------------- catálogo ----------------
@@ -200,6 +246,7 @@
       catalog = [];
       catErr = e.message;
     }
+    renderCatNav();
   }
 
   const byId = (id) => (catalog || []).find((p) => p.id === id);
@@ -213,21 +260,38 @@
         ${p.in_stock ? '<span class="lj-tag">Pronta entrega</span>' : ''}
       </button>
       <div class="lj-body">
-        <small>${esc(p.category || '')}${p.code ? ' · ' + esc(p.code) : ''}</small>
-        <h3>${esc(p.name)}</h3>
+        <small>${esc(p.category || '')}</small>
+        <h3 data-act="detail" data-id="${esc(p.id)}">${esc(p.name)}</h3>
+        ${p.code ? `<span class="lj-code">Cód. ${esc(p.code)}</span>` : ''}
         ${p.blurb ? `<p class="lj-blurb">${esc(p.blurb)}</p>` : ''}
         ${priceHtml(p)}
-        <button class="btn primary" data-act="add" data-id="${esc(p.id)}">${cart[p.id] ? 'Adicionar mais' : 'Adicionar à solicitação'}</button>
+        <button class="btn primary lj-buy" data-act="add" data-id="${esc(p.id)}">${icons.cart} ${cart[p.id] ? 'Adicionar mais' : 'Adicionar'}</button>
       </div>
     </article>`;
   }
 
-  function gridHtml() {
+  function filtered() {
     const s = q.trim().toLowerCase();
-    const list = (catalog || []).filter((p) => (!cat || p.category === cat) && (!s || `${p.name} ${p.code} ${p.category} ${p.blurb}`.toLowerCase().includes(s)));
+    const list = (catalog || []).filter(
+      (p) => (!cat || p.category === cat) && (!onlyReady || p.in_stock) && (!s || `${p.name} ${p.code} ${p.category} ${p.blurb}`.toLowerCase().includes(s))
+    );
+    const price = (p, dir) => (p.price === null ? (dir > 0 ? Infinity : -Infinity) : p.price);
+    if (sortBy === 'menor') list.sort((x, y) => price(x, 1) - price(y, 1) || x.name.localeCompare(y.name, 'pt-BR'));
+    else if (sortBy === 'maior') list.sort((x, y) => (y.price === null ? -1 : y.price) - (x.price === null ? -1 : x.price) || x.name.localeCompare(y.name, 'pt-BR'));
+    else list.sort((x, y) => x.name.localeCompare(y.name, 'pt-BR'));
+    return list;
+  }
+
+  function gridHtml() {
+    const list = filtered();
     if (!list.length) return `<div class="card empty" style="grid-column:1/-1"><p>${(catalog || []).length ? 'Nenhum produto encontrado para essa busca.' : 'O catálogo está sendo preparado. Volte em breve.'}</p></div>`;
     return list.map(cardHtml).join('');
   }
+
+  const countText = () => {
+    const n = filtered().length;
+    return `${n} produto${n === 1 ? '' : 's'}${cat ? ' em ' + esc(cat) : ''}`;
+  };
 
   function viewCatalog() {
     if (!online) {
@@ -235,17 +299,51 @@
     }
     if (catalog === null) return `<div class="loading" style="margin-top:40px"><span class="spinner"></span> Carregando catálogo…</div>`;
     const cats = [...new Set(catalog.map((p) => p.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
-    const chip = (id, label) => `<button class="chip ${cat === id ? 'on' : ''}" data-act="cat" data-id="${esc(id)}">${esc(label)}</button>`;
+    const count = (c) => catalog.filter((p) => !c || p.category === c).length;
+    const li = (id, label) => `<li><button class="${cat === id ? 'on' : ''}" data-act="cat" data-id="${esc(id)}"><span>${esc(label)}</span><em>${count(id)}</em></button></li>`;
+    const showBanner = !cat && !q.trim() && !onlyReady;
     return `
-      <section class="lj-hero">
-        <h1>Torneiras, duchas e acessórios em metal</h1>
-        <p>Conheça nossos produtos e envie a sua solicitação de pedido. Nossa equipe confirma preço, prazo e disponibilidade com você.</p>
-        <input class="search" id="lj-q" type="search" placeholder="Buscar produto ou código" value="${esc(q)}" aria-label="Buscar produto" />
-        <div class="lj-steps"><span><b>1</b> Escolha os produtos</span><span><b>2</b> Crie sua conta (leva 2 minutos)</span><span><b>3</b> Envie a solicitação</span></div>
-      </section>
+      ${showBanner ? `<section class="lj-banner">
+        <div>
+          <span class="lj-eyebrow">Fabricação própria em metal</span>
+          <h1>Torneiras, duchas e acessórios para a sua obra</h1>
+          <p>Escolha os produtos, crie sua conta em 2 minutos e envie a solicitação. Nossa equipe confirma preço, prazo e disponibilidade com você.</p>
+          <button class="btn primary big" data-act="browse">Ver produtos</button>
+        </div>
+        <ol class="lj-steps2"><li><b>1</b><span>Escolha os produtos</span></li><li><b>2</b><span>Crie sua conta</span></li><li><b>3</b><span>Envie a solicitação</span></li><li><b>4</b><span>Receba a proposta</span></li></ol>
+      </section>` : ''}
       ${catErr ? `<div class="banner bad">${esc(catErr)}</div>` : ''}
-      <div class="lj-bar"><div class="chips">${chip('', 'Todos')}${cats.map((c) => chip(c, c)).join('')}</div></div>
-      <div class="lj-grid" id="lj-grid">${gridHtml()}</div>`;
+      <div class="lj-layout" id="lj-products">
+        <aside class="lj-filters" aria-label="Filtros">
+          <h2>Categorias</h2>
+          <ul>${li('', 'Todos os produtos')}${cats.map((c) => li(c, c)).join('')}</ul>
+          <h2>Disponibilidade</h2>
+          <label class="lj-check"><input type="checkbox" id="lj-ready" ${onlyReady ? 'checked' : ''} /> Só pronta entrega</label>
+        </aside>
+        <section>
+          <div class="lj-result">
+            <h2 id="lj-count">${countText()}</h2>
+            <label>Ordenar por
+              <select id="lj-sort"><option value="nome" ${sortBy === 'nome' ? 'selected' : ''}>Nome (A–Z)</option><option value="menor" ${sortBy === 'menor' ? 'selected' : ''}>Menor preço</option><option value="maior" ${sortBy === 'maior' ? 'selected' : ''}>Maior preço</option></select>
+            </label>
+          </div>
+          <div class="lj-grid" id="lj-grid">${gridHtml()}</div>
+        </section>
+      </div>`;
+  }
+
+  // redesenha a página inteira só quando o banner entra ou sai; senão, só a lista
+  function syncCatalog() {
+    const want = !cat && !q.trim() && !onlyReady;
+    if (!!$('.lj-banner') !== want) $('#lj-main').innerHTML = viewCatalog();
+    else refreshGrid();
+  }
+
+  function refreshGrid() {
+    const g = $('#lj-grid');
+    if (g) g.innerHTML = gridHtml();
+    const c = $('#lj-count');
+    if (c) c.innerHTML = countText();
   }
 
   function showDetail(id) {
@@ -284,8 +382,7 @@
     saveCart();
     renderTop();
     toast('Adicionado à solicitação.');
-    const g = $('#lj-grid');
-    if (g) g.innerHTML = gridHtml();
+    refreshGrid();
   }
 
   function showCart() {
@@ -811,6 +908,7 @@
   // ---------------- rotas e eventos ----------------
   async function route() {
     const main = $('#lj-main');
+    renderCatNav();
     const hash = location.hash || '#/';
     if (hash.startsWith('#/conta')) {
       if (!session) {
@@ -875,7 +973,29 @@
     },
     cat: (el) => {
       cat = el.dataset.id;
-      $('#lj-main').innerHTML = viewCatalog();
+      if ((location.hash || '#/').startsWith('#/conta')) location.hash = '#/';
+      else {
+        $('#lj-main').innerHTML = viewCatalog();
+        renderCatNav();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    },
+    home: () => {
+      cat = '';
+      q = '';
+      onlyReady = false;
+      const i = $('#lj-q');
+      if (i) i.value = '';
+      if ((location.hash || '#/').startsWith('#/conta')) location.hash = '#/';
+      else {
+        $('#lj-main').innerHTML = viewCatalog();
+        renderCatNav();
+      }
+      window.scrollTo({ top: 0 });
+    },
+    browse: () => {
+      const p = $('#lj-products');
+      if (p) p.scrollIntoView({ behavior: 'smooth', block: 'start' });
     },
     detail: (el) => showDetail(el.dataset.id),
     add: (el) => addToCart(el.dataset.id, 1),
@@ -966,8 +1086,26 @@
     }
   });
 
+  document.addEventListener('change', (e) => {
+    const t = e.target;
+    if (t.id === 'lj-sort') {
+      sortBy = t.value;
+      refreshGrid();
+    } else if (t.id === 'lj-ready') {
+      onlyReady = t.checked;
+      syncCatalog();
+    }
+  });
+
   document.addEventListener('submit', (e) => {
     const f = e.target;
+    if (f.id === 'lj-searchform') {
+      e.preventDefault();
+      if ((location.hash || '#/').startsWith('#/conta')) location.hash = '#/';
+      const p = $('#lj-products');
+      if (p) p.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
     const h = { 'f-login': doLogin, 'f-signup': doSignup, 'f-recover': doRecover, 'f-complete': doComplete, 'f-terms': doTerms, 'f-cart': sendRequest }[f.id];
     if (h) {
       e.preventDefault();
@@ -1060,8 +1198,11 @@
     const t = e.target;
     if (t.id === 'lj-q') {
       q = t.value;
-      const g = $('#lj-grid');
-      if (g) g.innerHTML = gridHtml();
+      if ((location.hash || '#/').startsWith('#/conta')) {
+        location.hash = '#/';
+        return;
+      }
+      syncCatalog();
     } else if (t.name === 'cep') onCepInput(t);
     else if (t.name === 'doc' && !t.readOnly) {
       const form = t.closest('form');
