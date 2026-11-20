@@ -66,8 +66,11 @@
       </section>
       <section class="login-panel">
         <div class="login-card">
-          <h1>Entrar</h1>
-          <p class="muted">Acesse com seu e-mail e senha.</p>
+          <div class="lc-head">
+            <span class="lc-logo">${icons.drop}</span>
+            <h1>Acesso da equipe</h1>
+            <p class="muted">Entre com o e-mail e a senha cadastrados pela gerência.</p>
+          </div>
           ${
             demo
               ? `<div class="demo-note"><b>Modo demonstração.</b> Os dados ficam só neste navegador e as contas abaixo são de teste. Para ter login de verdade, conecte o banco de dados (veja o README).</div>`
@@ -82,8 +85,9 @@
                 <button type="button" class="field-btn" data-action="toggle-pass" aria-label="Mostrar senha">${icons.eye}</button></span>
             </label>
             <p class="form-error" id="login-error" role="alert" ${error ? '' : 'hidden'}>${esc(error || '')}</p>
-            <button class="btn primary big" type="submit">Entrar</button>
+            <button class="btn primary big lc-btn" type="submit">Entrar</button>
           </form>
+          <p class="lc-safe">${icons.lock}<span>Conexão protegida. Seus dados seguem a LGPD e cada acesso fica registrado.</span></p>
           ${
             demo
               ? `<div class="demo-quick">
@@ -134,7 +138,7 @@
           <span class="field">${icons.lock}<input name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" required /></span>
         </label>
         <p class="form-error" id="login-error" role="alert" hidden></p>
-        <button class="btn primary big" type="submit">Confirmar</button>
+        <button class="btn primary big lc-btn" type="submit">Confirmar</button>
         <button class="btn ghost" type="button" data-action="mfa-cancel">Voltar</button>
       </form>`;
     $('#mfa-form input[name=code]').focus();

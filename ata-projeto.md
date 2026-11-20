@@ -129,3 +129,10 @@ Mostruário com fotos, Peças, Produtos (ficha técnica e montagem), Simulação
 - O schema foi testado em PostgreSQL 16 com simulador do Supabase (64 verificações), não em um Supabase de teste separado.
 - Modo demonstração: senhas de teste estão no código público; dados só no navegador.
 - Habilidade "consultor-mb-metais" proposta para dar ideias e críticas (salvar no cartão da conversa).
+
+## 2026-11-20 — Carrinho lateral, checkout e login da equipe
+- Loja: ao adicionar um produto, o card mostra um contador (− / quantidade / +) com "Produto adicionado".
+- Carrinho vira uma aba lateral à direita (conferir, alterar quantidade, remover). "Finalizar solicitação" abre a página #/finalizar.
+- Página de finalização: produtos, dados do cliente, Entrega/Retirada, CEP (preenche o endereço), resumo e observação.
+- Frete: ainda não existe tabela de frete; mostra "A combinar" e a equipe informa na proposta. Entrega/retirada e CEP vão dentro da observação da solicitação.
+- Login da equipe com o mesmo visual profissional da loja (tudo em português).

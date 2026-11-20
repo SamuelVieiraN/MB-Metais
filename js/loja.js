@@ -265,7 +265,7 @@
         ${p.code ? `<span class="lj-code">Cód. ${esc(p.code)}</span>` : ''}
         ${p.blurb ? `<p class="lj-blurb">${esc(p.blurb)}</p>` : ''}
         ${priceHtml(p)}
-        <button class="btn primary lj-buy" data-act="add" data-id="${esc(p.id)}">${icons.cart} ${cart[p.id] ? 'Adicionar mais' : 'Adicionar'}</button>
+        ${cart[p.id] ? `<div class="lj-added">${stepper(p.id, true)}<small>Produto adicionado</small></div>` : `<button class="btn primary lj-buy" data-act="add" data-id="${esc(p.id)}">${icons.cart} Adicionar</button>`}
       </div>
     </article>`;
   }
@@ -432,42 +432,208 @@
   function addToCart(id, qty) {
     const n = Math.max(1, Math.min(9999, Math.floor(Number(qty) || 1)));
     cart[id] = Math.min(9999, (cart[id] || 0) + n);
-    saveCart();
-    renderTop();
+    cartChanged();
     toast('Adicionado à solicitação.');
-    refreshGrid();
   }
 
-  function showCart() {
-    const ids = Object.keys(cart).filter((id) => byId(id));
+  // ---------------- carrinho (aba lateral) e finalização ----------------
+  const drawerEl = () => $('#drawer');
+  const cartIds = () => Object.keys(cart).filter((id) => byId(id));
+  const cartTotals = () => {
+    let sum = 0;
+    let priced = 0;
+    let ask = 0;
+    cartIds().forEach((id) => {
+      const p = byId(id);
+      if (p.price === null) ask += 1;
+      else {
+        sum += p.price * cart[id];
+        priced += 1;
+      }
+    });
+    return { sum, priced, ask };
+  };
+  const stepper = (id, rm) => `<div class="lj-stepper" role="group" aria-label="Quantidade"><button type="button" data-act="cq" data-id="${esc(id)}" data-d="-1" ${rm ? 'data-rm="1"' : ''} aria-label="Diminuir">−</button><input type="number" min="1" max="9999" value="${esc(cart[id])}" data-cqin="${esc(id)}" aria-label="Quantidade" /><button type="button" data-act="cq" data-id="${esc(id)}" data-d="1" aria-label="Aumentar">+</button></div>`;
+  const totalsHtml = () => {
+    const t = cartTotals();
+    const sub = t.priced ? esc(brl(t.sum)) : 'A confirmar';
+    return `<div class="lj-sumrow"><span>Subtotal</span><b>${sub}</b></div>${t.priced && t.ask ? `<p class="lj-sumnote">+ ${t.ask} produto${t.ask > 1 ? 's' : ''} sob consulta, cotado${t.ask > 1 ? 's' : ''} na proposta.</p>` : ''}`;
+  };
+
+  function drawerHtml() {
+    const ids = cartIds();
     const rows = ids
       .map((id) => {
         const p = byId(id);
-        return `<div class="lj-cart-row">
-          <div class="nm"><b>${esc(p.name)}</b><small class="muted">${esc(p.code || p.category || '')} · ${p.price === null ? 'Sob consulta' : esc(brl(p.price))}</small></div>
-          <div class="qty"><button type="button" data-act="cq" data-id="${esc(id)}" data-d="-1" aria-label="Menos">−</button><input type="number" min="1" max="9999" value="${esc(cart[id])}" data-cqin="${esc(id)}" aria-label="Quantidade de ${esc(p.name)}" /><button type="button" data-act="cq" data-id="${esc(id)}" data-d="1" aria-label="Mais">+</button>
-          <button type="button" class="icon-btn" data-act="crm" data-id="${esc(id)}" aria-label="Remover ${esc(p.name)}">${icons.trash}</button></div>
+        const img = p.photos[0];
+        return `<div class="dr-item">
+          <span class="dr-thumb">${img ? `<img src="${esc(img)}" alt="" />` : icons.image}</span>
+          <div class="dr-info"><b>${esc(p.name)}</b><small>${esc(p.code ? 'Cód. ' + p.code : p.category || '')}</small>
+            <div class="dr-line"><span class="dr-price ${p.price === null ? 'ask' : ''}">${p.price === null ? 'Sob consulta' : esc(brl(p.price))}</span>${stepper(id)}</div></div>
+          <button type="button" class="dr-rm" data-act="crm" data-id="${esc(id)}" aria-label="Remover ${esc(p.name)}">${icons.trash}</button>
         </div>`;
       })
       .join('');
-    openDlg(
-      `<form id="f-cart" novalidate>
-        <h2>Sua solicitação</h2>
-        ${ids.length ? rows : '<p class="muted">Você ainda não escolheu nenhum produto.</p>'}
-        ${ids.length ? `<label style="display:grid;gap:5px;margin-top:14px;font-weight:600;font-size:0.88rem">Observação (opcional)<textarea name="note" rows="3" maxlength="500" placeholder="Ex.: prazo desejado, cor, dúvidas">${esc(cartNote)}</textarea></label>
-        <p class="lj-note" style="margin-top:12px">Isto é uma <b>solicitação</b>, não uma compra. A empresa entra em contato para confirmar preço, prazo e pagamento.</p>` : ''}
-        <p class="form-error" id="f-err" role="alert" hidden></p>
-        <div class="modal-actions">
-          <button type="button" class="btn ghost" data-act="close">${ids.length ? 'Continuar vendo' : 'Fechar'}</button>
-          ${ids.length ? `<button type="submit" class="btn primary">Enviar solicitação</button>` : ''}
-        </div>
-      </form>`
-    );
+    return `<div class="dr">
+      <header><h2>Minha solicitação${ids.length ? ` <span>(${ids.length})</span>` : ''}</h2><button type="button" class="dr-x" data-act="drawer-close" aria-label="Fechar">${icons.x}</button></header>
+      ${ids.length ? '<p class="dr-tip">Isto é uma <b>solicitação</b>, não uma compra: preço, prazo e frete são confirmados pela nossa equipe.</p>' : ''}
+      <div class="dr-body">${ids.length ? rows : `<div class="dr-empty">${icons.cart}<b>Sua solicitação está vazia</b><p>Escolha produtos no catálogo para começar.</p></div>`}</div>
+      <footer>
+        ${ids.length ? `<div id="dr-sum">${totalsHtml()}</div><button type="button" class="au-btn" data-act="finalizar">Finalizar solicitação</button>` : ''}
+        <button type="button" class="dr-cont" data-act="drawer-close">${ids.length ? 'Continuar comprando' : 'Ver produtos'}</button>
+      </footer>
+    </div>`;
   }
+
+  function showCart() {
+    const d = drawerEl();
+    d.innerHTML = drawerHtml();
+    if (!d.open) d.showModal();
+  }
+
+  // atualiza tudo que mostra o carrinho (cards, selo, aba lateral e página de finalização)
+  function cartChanged() {
+    saveCart();
+    renderTop();
+    refreshGrid();
+    const d = drawerEl();
+    if (d && d.open) {
+      const keep = d.querySelector('.dr-body');
+      const top = keep ? keep.scrollTop : 0;
+      d.innerHTML = drawerHtml();
+      const nb = d.querySelector('.dr-body');
+      if (nb) nb.scrollTop = top;
+    }
+    if (location.hash.startsWith('#/finalizar')) {
+      if (!cartIds().length) {
+        location.hash = '#/';
+        return;
+      }
+      updateCheckout();
+    }
+  }
+
+  // ----- página de finalização -----
+  let chk = { mode: 'entrega', cep: '', addr: null, msg: '' };
+
+  const addrLine = (a) => [a.street, a.district, a.city && a.uf ? `${a.city}/${a.uf}` : a.city].filter(Boolean).join(' · ');
+
+  function chkRowsHtml() {
+    return `<div class="chk-table"><div class="chk-head"><span>Produto</span><span>Preço</span><span>Quantidade</span><span>Total</span><span></span></div>${cartIds()
+      .map((id) => {
+        const p = byId(id);
+        const img = p.photos[0];
+        return `<div class="chk-row">
+          <div class="chk-prod"><span class="dr-thumb">${img ? `<img src="${esc(img)}" alt="" />` : icons.image}</span><div><b>${esc(p.name)}</b><small>${esc(p.code ? 'Cód. ' + p.code : p.category || '')}</small></div></div>
+          <div class="chk-price" data-l="Preço">${p.price === null ? '<span class="ask">Sob consulta</span>' : esc(brl(p.price))}</div>
+          <div data-l="Quantidade">${stepper(id)}</div>
+          <div class="chk-price" data-l="Total">${p.price === null ? '–' : esc(brl(p.price * cart[id]))}</div>
+          <button type="button" class="dr-rm" data-act="crm" data-id="${esc(id)}" aria-label="Remover ${esc(p.name)}">${icons.trash}</button>
+        </div>`;
+      })
+      .join('')}</div>`;
+  }
+
+  function chkDeliveryHtml() {
+    const tab = (m, label) => `<button type="button" class="${chk.mode === m ? 'on' : ''}" data-act="ship" data-v="${m}">${label}${chk.mode === m ? ' ✓' : ''}</button>`;
+    let body;
+    if (chk.mode === 'retirada') {
+      body = `<div class="chk-result ok">${icons.store}<div><b>Retirada na empresa</b><p>${esc(CO.address || 'Endereço da empresa')}</p><p class="muted">Combinamos o dia e o horário pelo telefone ou e-mail.</p></div></div>`;
+    } else {
+      body = `<div class="chk-cep"><label>CEP de entrega<input id="chk-cep" inputmode="numeric" maxlength="9" placeholder="00000-000" value="${esc(chk.cep)}" autocomplete="postal-code" /></label><button type="button" class="btn" data-act="calc">Calcular</button></div>
+        <p class="hint"><a href="https://buscacepinter.correios.com.br/app/endereco/index.php" target="_blank" rel="noopener">Não sei meu CEP</a></p>
+        <div id="chk-res">${chkResultHtml()}</div>`;
+    }
+    return `<div class="chk-seg">${tab('entrega', 'Entrega')}${tab('retirada', 'Retirada')}</div>${body}`;
+  }
+
+  function chkResultHtml() {
+    if (chk.msg) return `<p class="form-error" role="alert">${esc(chk.msg)}</p>`;
+    if (!chk.addr) return '';
+    return `<div class="chk-result ok">${icons.truck}<div><b>Entregamos em ${esc(chk.addr.city || 'sua região')}${chk.addr.uf ? '/' + esc(chk.addr.uf) : ''}</b><p>${esc(addrLine(chk.addr) || 'CEP ' + chk.cep)} · CEP ${esc(chk.cep)}</p><p class="muted">O valor do frete e o prazo são informados pela nossa equipe na proposta, antes de você fechar o pedido.</p></div></div>`;
+  }
+
+  function chkSummaryHtml() {
+    return `${totalsHtml()}
+      <div class="lj-sumrow"><span>Frete</span><b>${chk.mode === 'retirada' ? 'Sem frete' : 'A combinar'}</b></div>
+      <div class="lj-sumrow total"><span>Total estimado</span><b>${cartTotals().priced ? esc(brl(cartTotals().sum)) : 'A confirmar'}</b></div>
+      <p class="lj-sumnote">Valores finais confirmados na proposta.</p>`;
+  }
+
+  function updateCheckout() {
+    const r = $('#chk-rows');
+    if (r) r.innerHTML = chkRowsHtml();
+    const m = $('#chk-sum');
+    if (m) m.innerHTML = chkSummaryHtml();
+    const n = $('#chk-count');
+    if (n) n.textContent = `${cartIds().length} produto${cartIds().length === 1 ? '' : 's'}`;
+  }
+
+  function viewCheckout() {
+    const ids = cartIds();
+    if (!ids.length) return `<div class="card empty" style="margin-top:24px"><p><b>Sua solicitação está vazia.</b></p><p><button class="btn primary" data-act="home">Ver produtos</button></p></div>`;
+    const logged = !!(session && me && me.registered);
+    if (logged && !chk.cep && me.cep) {
+      chk.cep = V.maskCEP(me.cep);
+      chk.addr = { street: me.street, district: me.district, city: me.city, uf: me.uf };
+    }
+    const done = (n) => (n === 1 ? true : n === 2 ? logged : n === 3 ? chk.mode === 'retirada' || !!chk.addr : false);
+    const step = (n, l) => `<li class="${done(n) ? 'done' : ''}"><b>${done(n) ? '✓' : n}</b><span>${l}</span></li>`;
+    const dataBlock = logged
+      ? `<div class="chk-data"><div><b>${esc(me.name)}</b><span>${labelDoc(me.kind)} ${esc(V.fmtDoc(me.kind, me.doc))}</span></div><div><span>${esc(me.email)}</span><span>${esc(V.maskPhone(me.phone || ''))}</span></div><p class="hint">Quer corrigir algum dado? <a href="#/conta" data-act="account">Minha conta &rarr; Meus dados</a></p></div>`
+      : `<div class="chk-result">${icons.user}<div><b>Entre ou crie sua conta para enviar</b><p class="muted">Seus produtos continuam salvos. O cadastro leva cerca de 2 minutos.</p><p><button type="button" class="btn primary" data-act="chk-login">Entrar ou cadastrar</button></p></div></div>`;
+    return `
+      <nav class="lj-crumb" aria-label="Você está aqui"><a href="#/" data-act="home">Início</a> ${icons.chevron} <span>Finalizar solicitação</span></nav>
+      <div class="chk-top"><h1>Finalizar solicitação</h1><span class="chk-safe">${icons.shield} Seus dados protegidos (LGPD)</span></div>
+      <ol class="chk-steps" aria-label="Etapas">${step(1, 'Carrinho')}${step(2, 'Dados pessoais')}${step(3, 'Entrega')}<li class="cur"><b>4</b><span>Confirmação</span></li></ol>
+      <form id="f-cart" class="chk" novalidate>
+        <div class="chk-main">
+          <section class="chk-card"><h2>Produtos <small id="chk-count">${ids.length} produto${ids.length === 1 ? '' : 's'}</small></h2><div id="chk-rows">${chkRowsHtml()}</div></section>
+          <section class="chk-card"><h2>Seus dados</h2>${dataBlock}</section>
+          <section class="chk-card"><h2>Frete e entrega</h2><div id="chk-del">${chkDeliveryHtml()}</div></section>
+          <section class="chk-card"><h2>Observação <small>(opcional)</small></h2><textarea name="note" rows="3" maxlength="300" placeholder="Ex.: prazo desejado, cor, dúvidas">${esc(cartNote)}</textarea></section>
+        </div>
+        <aside class="chk-side">
+          <div class="chk-card sticky"><h2>Resumo</h2><div id="chk-sum">${chkSummaryHtml()}</div>
+            <p class="form-error" id="f-err" role="alert" hidden></p>
+            <button type="submit" class="au-btn">Enviar solicitação</button>
+            <button type="button" class="dr-cont" data-act="home">Continuar comprando</button>
+            <p class="lj-note" style="margin:12px 0 0">Isto é uma <b>solicitação</b>, não uma compra. A empresa entra em contato para confirmar preço, prazo e pagamento.</p>
+          </div>
+        </aside>
+      </form>`;
+  }
+
+  async function doCalc() {
+    const cep = V.digits(($('#chk-cep') || {}).value || '');
+    chk.msg = '';
+    if (cep.length !== 8) {
+      chk.msg = 'Digite um CEP com 8 números.';
+      chk.addr = null;
+    } else {
+      chk.cep = V.maskCEP(cep);
+      const res = $('#chk-res');
+      if (res) res.innerHTML = '<p class="hint">Buscando endereço…</p>';
+      const r = await lookupCep(cep);
+      if (r.found) chk.addr = r.found;
+      else {
+        chk.addr = null;
+        chk.msg = r.failed ? 'Não consegui consultar o CEP agora. Tente de novo em instantes.' : 'CEP não encontrado. Confira os números.';
+      }
+    }
+    const d = $('#chk-del');
+    if (d) d.innerHTML = chkDeliveryHtml();
+  }
+
+  const deliveryNote = () => {
+    if (chk.mode === 'retirada') return 'RETIRADA NA EMPRESA';
+    const a = chk.addr;
+    return `ENTREGA${a ? ' em ' + addrLine(a) : ''}${chk.cep ? ' · CEP ' + chk.cep : ''}`;
+  };
 
   async function sendRequest(form) {
     cartNote = String(form.note.value || '');
-    const items = Object.keys(cart).filter((id) => byId(id)).map((id) => ({ product_id: id, qty: cart[id] }));
+    const items = cartIds().map((id) => ({ product_id: id, qty: cart[id] }));
     if (!items.length) return showErr('Escolha pelo menos um produto.');
     if (!session) {
       openAuth('entrar', 'Entre ou crie uma conta para enviar a solicitação. Seus produtos continuam salvos.');
@@ -486,12 +652,15 @@
         busy(btn, false);
         return openTerms();
       }
-      await rpc('create_request', { p_items: items, p_note: cartNote }, true);
+      const note = (deliveryNote() + (cartNote.trim() ? ' | ' + cartNote.trim() : '')).slice(0, 500);
+      await rpc('create_request', { p_items: items, p_note: note }, true);
       cart = {};
       cartNote = '';
+      chk = { mode: 'entrega', cep: '', addr: null, msg: '' };
       saveCart();
       renderTop();
       myReqs = null;
+      location.hash = '#/';
       openDlg(`<form method="dialog" style="padding:26px;text-align:center">
         <div class="hoje-ico" style="margin:0 auto 10px">${icons.check}</div>
         <h2>Solicitação enviada!</h2>
@@ -764,7 +933,7 @@
     if (!me.registered) return openComplete('Falta completar o seu cadastro.');
     if (me.needs_terms) return openTerms();
     toast(`Olá, ${firstName(me.name)}!`);
-    if (location.hash.startsWith('#/conta')) route();
+    if (location.hash.startsWith('#/conta') || location.hash.startsWith('#/finalizar')) route();
   }
 
   async function doLogin(form) {
@@ -1009,6 +1178,31 @@
     const main = $('#lj-main');
     renderCatNav();
     const hash = location.hash || '#/';
+    if (hash.startsWith('#/finalizar')) {
+      if (catalog === null && online) {
+        main.innerHTML = '<div class="loading" style="margin-top:40px"><span class="spinner"></span> Carregando…</div>';
+        await loadCatalog();
+        renderTop();
+      }
+      if (session && !me) {
+        try {
+          await loadMe();
+        } catch (e) {
+          me = null;
+        }
+      }
+      if (me && me.staff) {
+        await signOut(true);
+      }
+      if (!cartIds().length) {
+        location.hash = '#/';
+        return;
+      }
+      main.innerHTML = viewCheckout();
+      document.title = 'Finalizar solicitação | M&B Metais';
+      window.scrollTo({ top: 0 });
+      return;
+    }
     if (hash.startsWith('#/conta')) {
       if (!session) {
         main.innerHTML = viewCatalog();
@@ -1127,18 +1321,37 @@
     },
     cq: (el) => {
       const id = el.dataset.id;
-      cart[id] = Math.max(1, Math.min(9999, (cart[id] || 1) + Number(el.dataset.d)));
-      saveCart();
-      cartNote = ($('#f-cart textarea') || {}).value || cartNote;
-      showCart();
+      const next = (cart[id] || 1) + Number(el.dataset.d);
+      if (next < 1) {
+        if (el.dataset.rm) delete cart[id];
+        else cart[id] = 1;
+      } else cart[id] = Math.min(9999, next);
+      cartChanged();
     },
     crm: (el) => {
       delete cart[el.dataset.id];
-      saveCart();
-      renderTop();
-      cartNote = ($('#f-cart textarea') || {}).value || cartNote;
-      showCart();
+      cartChanged();
     },
+    'drawer-close': () => {
+      const d = drawerEl();
+      if (d && d.open) d.close();
+    },
+    finalizar: () => {
+      const d = drawerEl();
+      if (d && d.open) d.close();
+      if (!cartIds().length) return toast('Escolha pelo menos um produto.');
+      location.hash = '#/finalizar';
+      window.scrollTo({ top: 0 });
+    },
+    ship: (el) => {
+      chk.mode = el.dataset.v;
+      const d = $('#chk-del');
+      if (d) d.innerHTML = chkDeliveryHtml();
+      const m = $('#chk-sum');
+      if (m) m.innerHTML = chkSummaryHtml();
+    },
+    calc: () => doCalc(),
+    'chk-login': () => openAuth('entrar', 'Entre ou crie uma conta para enviar a solicitação. Seus produtos continuam salvos.'),
     'auth-mode': (el) => openAuth(el.dataset.m),
     'toggle-pass': (el) => {
       const i = $('input', el.parentElement);
@@ -1206,6 +1419,10 @@
 
   document.addEventListener('change', (e) => {
     const t = e.target;
+    if (t.dataset && t.dataset.cqin) {
+      cartChanged();
+      return;
+    }
     if (t.id === 'lj-sort') {
       sortBy = t.value;
       refreshGrid();
@@ -1344,6 +1561,10 @@
     if (e.target.closest && e.target.closest('.lj-banner')) bnPaused = true;
   });
   document.addEventListener('focusout', () => (bnPaused = false));
+
+  document.addEventListener('click', (e) => {
+    if (e.target && e.target.id === 'drawer') e.target.close();
+  });
 
   window.addEventListener('hashchange', route);
 
