@@ -528,6 +528,7 @@
     if (!list.length) return `<div class="empty card" style="grid-column:1/-1">Nenhum produto encontrado.</div>`;
     const stock = L.stockMap(App.state.parts);
     const byId = L.partsById(App.state.parts);
+    const reserved = L.reservedByProduct(App.state.orders || [], App.state.products);
     const manager = App.isManager();
     return list
       .map((p) => {
@@ -558,7 +559,7 @@
             <div class="cat">${esc(p.category)}${p.code ? ` · ${esc(p.code)}` : ''}</div>
             <h3>${esc(p.name)}</h3>
             <div class="big"><strong>${int(max)}</strong><span class="muted">unidades possíveis</span></div>
-            <div><span class="pill ready">${int(p.ready || 0)} montado${(p.ready || 0) === 1 ? '' : 's'} (pronto${(p.ready || 0) === 1 ? '' : 's'})</span></div>
+            ${readyHtml(p, reserved)}
             <div class="limit">${limitText}</div>
             ${money}
           </div>
@@ -723,11 +724,21 @@
   // =====================================================================
   //  Produtos
   // =====================================================================
+  // montados livres (o que está reservado para um pedido sai daqui e fica no pedido)
+  function readyHtml(p, reserved) {
+    const r = reserved[p.id];
+    const free = Math.max(0, (p.ready || 0) - (r ? r.qty : 0));
+    return `<div><span class="pill ready">${int(free)} montado${free === 1 ? '' : 's'} livre${free === 1 ? '' : 's'}</span>${
+      r ? ` <span class="pill warn" title="Reservados para pedidos em andamento. Se o pedido for editado para menos ou cancelado, voltam para os montados livres.">${int(r.qty)} reservado${r.qty === 1 ? '' : 's'} · ${r.orders.map((x) => '#' + x.num + ' (' + int(x.qty) + ')').join(', ')}</span>` : ''
+    }</div>`;
+  }
+
   function prodCardsHtml() {
     const manager = App.isManager();
     const byId = L.partsById(App.state.parts);
     const stock = L.stockMap(App.state.parts);
     const pending = L.pendingByProduct(App.state.orders || [], App.state.products);
+    const reserved = L.reservedByProduct(App.state.orders || [], App.state.products);
     const q = App.prodFilter.trim().toLowerCase();
     const list = App.state.products
       .filter((p) => !q || [p.name, p.code, p.category].join(' ').toLowerCase().includes(q))
@@ -763,7 +774,7 @@
             <div class="cat">${esc(p.category)}${p.code ? ` · ${esc(p.code)}` : ''}</div>
             <h3>${esc(p.name)}</h3>
             ${pendHtml}
-            <div><span class="pill ready">${int(p.ready || 0)} montado${(p.ready || 0) === 1 ? '' : 's'} (pronto${(p.ready || 0) === 1 ? '' : 's'})</span></div>
+            ${readyHtml(p, reserved)}
             <div><span class="hint">Ficha técnica (por unidade)</span><ul class="bom">${items || '<li class="muted">Nenhuma peça cadastrada.</li>'}</ul></div>
             ${money}
             <div class="actions">

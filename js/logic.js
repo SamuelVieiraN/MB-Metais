@@ -205,6 +205,29 @@
   }
 
   /**
+   * Montados reservados à mão para pedidos em andamento, por produto:
+   * { idDoProduto: { qty, orders: [{ num, qty }] } }. Pedido cancelado, finalizado ou editado para
+   * menos libera a reserva sozinho (só pedidos em andamento contam).
+   */
+  function reservedByProduct(orders, products) {
+    const left = {};
+    (products || []).forEach((p) => (left[p.id] = Math.max(0, Math.floor(p.ready || 0))));
+    const out = {};
+    const open = (orders || []).filter((o) => o.status === 'aberto').sort((a, b) => new Date(a.date) - new Date(b.date));
+    for (const o of open) {
+      for (const it of o.items) {
+        const give = Math.min(left[it.productId] || 0, it.qty, Math.max(0, it.reserved || 0));
+        if (give <= 0) continue;
+        left[it.productId] -= give;
+        const e = (out[it.productId] = out[it.productId] || { qty: 0, orders: [] });
+        e.qty += give;
+        e.orders.push({ num: o.num, qty: give });
+      }
+    }
+    return out;
+  }
+
+  /**
    * O que ainda falta montar por produto para completar os pedidos em andamento
    * (já descontados os montados que cobrem cada pedido). { idDoProduto: { qty, orders: [números] } }
    */
@@ -257,6 +280,7 @@
   return {
     allocateReady,
     pendingByProduct,
+    reservedByProduct,
     orderProgress,
     round2,
     partsById,
