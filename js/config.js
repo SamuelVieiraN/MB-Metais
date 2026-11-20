@@ -12,5 +12,5 @@
  */
 window.APP_CONFIG = {
   supabaseUrl: 'https://ynmznvsqirwcqibpchon.supabase.co',
-  supabaseAnonKey: '',
+  supabaseAnonKey: 'sb_publishable_Jwu_NPHYTJILMxy77W_IxA_Vri-1W5z',
 };
