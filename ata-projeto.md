@@ -136,3 +136,4 @@ Mostruário com fotos, Peças, Produtos (ficha técnica e montagem), Simulação
 - Página de finalização: produtos, dados do cliente, Entrega/Retirada, CEP (preenche o endereço), resumo e observação.
 - Frete: ainda não existe tabela de frete; mostra "A combinar" e a equipe informa na proposta. Entrega/retirada e CEP vão dentro da observação da solicitação.
 - Login da equipe com o mesmo visual profissional da loja (tudo em português).
+- Páginas legais (20/11): novo layout institucional (privacidade, termos, cookies, direitos): cabeçalho fixo com botão "Voltar à loja" que acompanha a rolagem, menu lateral Institucional, índice "Nesta página" com destaque da seção, rodapé e tema claro/escuro. Montado por js/legal.js; textos continuam rascunhos para revisão jurídica.

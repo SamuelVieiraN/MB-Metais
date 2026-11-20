@@ -435,3 +435,49 @@ dialog.drawer::backdrop { background: rgba(10, 30, 38, 0.55); }
 :root[data-theme="dark"] .chk-seg button.on { background: var(--brand); }
 :root[data-theme="dark"] .dr-thumb { background: #fff; }
 .chk-steps li.done span { text-decoration: none; opacity: 1; }
+
+/* ===== páginas institucionais (privacidade, termos, cookies) ===== */
+body.loja { background: var(--soft); }
+.lg-head { position: sticky; top: 0; z-index: 30; background: #12262d; color: #fff; box-shadow: 0 2px 14px rgba(5, 25, 32, 0.25); }
+.lg-bar { max-width: 1180px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px clamp(14px, 3vw, 28px); }
+.lg-back { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px 9px 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.14); color: #fff; font-weight: 700; font-size: 0.92rem; text-decoration: none; border: 1px solid rgba(255, 255, 255, 0.24); }
+.lg-back:hover { background: rgba(255, 255, 255, 0.26); }
+.lg-brand { display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; margin: 0 auto 0 8px; }
+.lg-brand .lg-drop { width: 28px; height: 28px; color: #6fd0df; }
+.lg-brand span { display: grid; line-height: 1.15; }
+.lg-brand small { opacity: 0.7; font-size: 0.74rem; }
+.lg-theme { border: 1px solid rgba(255, 255, 255, 0.3); background: transparent; color: #fff; border-radius: 999px; padding: 7px 14px; font: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+.lg-theme:hover { background: rgba(255, 255, 255, 0.16); }
+.legal.lg-main, main.legal { max-width: none; padding: 0; margin: 0; }
+.lg-wrap { max-width: 1180px; margin: 0 auto; padding: 0 clamp(14px, 3vw, 28px); }
+.lg-crumb { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 0.84rem; color: var(--muted); padding: 18px 0 14px; }
+.lg-crumb a { color: var(--brand-ink); }
+.lg-grid { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 28px; align-items: start; padding-bottom: 56px; }
+.lg-side { position: sticky; top: 84px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px 8px 14px; max-height: calc(100vh - 100px); overflow-y: auto; }
+.lg-side h2 { margin: 0 12px 8px; font-size: 1rem; }
+.lg-side h3 { margin: 18px 12px 6px; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.lg-side nav { display: grid; }
+.lg-side nav a { padding: 9px 12px; border-radius: 10px; color: var(--ink); text-decoration: none; font-size: 0.9rem; border-left: 3px solid transparent; }
+.lg-side nav a:hover { background: var(--hover); }
+.lg-side nav a[aria-current="page"] { background: var(--brand-soft); color: var(--brand-ink); font-weight: 700; border-left-color: var(--brand); }
+.lg-toc a { font-size: 0.82rem !important; color: var(--ink-soft) !important; padding: 6px 12px !important; }
+.lg-toc a.on { color: var(--brand-ink) !important; font-weight: 700; border-left-color: var(--brand) !important; background: var(--brand-soft); }
+.lg-art { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: clamp(20px, 4vw, 44px); min-width: 0; }
+.lg-art h1 { margin: 0 0 6px; font-size: clamp(1.6rem, 3vw, 2.1rem); letter-spacing: -0.01em; }
+.lg-meta { margin: 0 0 18px; padding-bottom: 16px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 0.86rem; }
+.lg-body { line-height: 1.7; font-size: 0.98rem; }
+.lg-body h2 { margin: 34px 0 10px; font-size: 1.2rem; padding-top: 6px; scroll-margin-top: 90px; }
+.lg-body h2::before { content: ""; display: block; width: 36px; height: 3px; border-radius: 3px; background: var(--brand); margin-bottom: 10px; }
+.lg-body table { display: block; overflow-x: auto; }
+.lg-body .lg-draft { font-size: 0.82rem; margin: 0 0 18px; padding: 8px 12px; }
+.lg-help { margin-top: 36px; padding: 16px 18px; border-radius: 12px; background: var(--brand-soft); color: var(--brand-ink); font-size: 0.92rem; }
+.lg-help a { font-weight: 700; margin-left: 6px; }
+.lg-foot { background: #12262d; color: rgba(255, 255, 255, 0.78); font-size: 0.82rem; padding: 22px 0; text-align: center; line-height: 1.6; }
+@media (max-width: 900px) {
+  .lg-grid { grid-template-columns: 1fr; }
+  .lg-side { position: static; max-height: none; }
+  .lg-toc, .lg-side h3 { display: none; }
+  .lg-brand small { display: none; }
+}
+@media (max-width: 520px) { .lg-brand span { display: none; } .lg-brand { margin: 0 auto; } }
+@media print { .lg-head, .lg-side, .lg-foot, .lg-help, .lg-crumb { display: none; } .lg-art { border: 0; } }
