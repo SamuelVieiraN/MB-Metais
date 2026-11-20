@@ -204,6 +204,26 @@
     return out;
   }
 
+  /**
+   * O que ainda falta montar por produto para completar os pedidos em andamento
+   * (já descontados os montados que cobrem cada pedido). { idDoProduto: { qty, orders: [números] } }
+   */
+  function pendingByProduct(orders, products) {
+    const alloc = allocateReady(orders || [], products || []);
+    const out = {};
+    for (const o of (orders || []).filter((x) => x.status === 'aberto')) {
+      for (const it of o.items) {
+        const miss = it.qty - ((alloc[o.id] && alloc[o.id][it.productId]) || 0);
+        if (miss > 0) {
+          const e = (out[it.productId] = out[it.productId] || { qty: 0, orders: [] });
+          e.qty += miss;
+          e.orders.push(o.num);
+        }
+      }
+    }
+    return out;
+  }
+
   /** Andamento de um pedido: o que já está montado, o que falta e se as peças dão para o que falta. */
   function orderProgress(order, alloc, products, parts) {
     const byProd = {};
@@ -236,6 +256,7 @@
 
   return {
     allocateReady,
+    pendingByProduct,
     orderProgress,
     round2,
     partsById,

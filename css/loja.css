@@ -481,3 +481,43 @@ body.loja { background: var(--soft); }
 }
 @media (max-width: 520px) { .lg-brand span { display: none; } .lg-brand { margin: 0 auto; } }
 @media print { .lg-head, .lg-side, .lg-foot, .lg-help, .lg-crumb { display: none; } .lg-art { border: 0; } }
+
+/* senha: requisitos e conferência */
+.pw-box { display: grid; gap: 8px; }
+.pw-rules { list-style: none; margin: 0; padding: 10px 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; border-radius: 10px; background: var(--soft); border: 1px solid var(--line-soft); font-size: 0.82rem; color: var(--muted); }
+.pw-rules .pw-title { grid-column: 1 / -1; font-weight: 700; color: var(--ink-soft); }
+.pw-rules li { display: flex; align-items: center; gap: 8px; }
+.pw-dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--line-strong); flex: none; position: relative; }
+.pw-rules li.ok { color: var(--ok); font-weight: 600; }
+.pw-rules li.ok .pw-dot { background: var(--ok); border-color: var(--ok); }
+.pw-rules li.ok .pw-dot::after { content: ""; position: absolute; left: 3.5px; top: 0.5px; width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.pw-match { min-height: 1.2em; display: block; margin-top: 4px; }
+@media (max-width: 520px) { .pw-rules { grid-template-columns: 1fr; } }
+
+/* meus dados: campos travados */
+.lk-note { display: flex; gap: 8px; align-items: flex-start; font-size: 0.86rem; color: var(--muted); margin: 6px 0 0; }
+.lk-note svg { width: 17px; height: 17px; flex: none; margin-top: 1px; }
+.locked { color: var(--muted); }
+.lk-field { position: relative; display: block; }
+.lk-field input { width: 100%; background: var(--soft) !important; color: var(--muted) !important; border-style: dashed !important; cursor: not-allowed; padding-right: 38px; }
+.lk-field svg { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); width: 17px; height: 17px; color: var(--muted); pointer-events: none; }
+
+/* endereços */
+.ad-head { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+.ad-head h3 { margin: 0 0 4px; }
+.ad-head p { margin: 0; }
+.ad-list { display: grid; gap: 10px; margin-top: 16px; }
+.ad-card { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; border: 1.5px solid var(--line); border-radius: 12px; padding: 14px 16px; background: var(--card); }
+.ad-card.main { border-color: var(--brand); background: var(--brand-soft); }
+.ad-card p { margin: 4px 0 0; color: var(--ink-soft); font-size: 0.9rem; }
+.ad-act { display: flex; gap: 6px; flex-wrap: wrap; }
+.chk-addrs { display: grid; gap: 10px; margin-bottom: 12px; }
+.chk-addr { display: flex; gap: 12px; align-items: flex-start; border: 1.5px solid var(--line); border-radius: 12px; padding: 13px 14px; cursor: pointer; background: var(--card); }
+.chk-addr:hover { border-color: var(--brand); }
+.chk-addr.on { border-color: var(--brand); background: var(--brand-soft); }
+.chk-addr input { margin-top: 4px; accent-color: var(--brand); width: 18px; height: 18px; }
+.chk-addr small { display: block; color: var(--ink-soft); font-size: 0.86rem; margin-top: 3px; }
+.pw-box { grid-template-columns: minmax(0, 1fr); }
+.pw-rules { width: 100%; box-sizing: border-box; }
+#f-data .modal-actions { margin-top: 16px; }
+.form-grid > div.s6 { grid-column: span 6; min-width: 0; }

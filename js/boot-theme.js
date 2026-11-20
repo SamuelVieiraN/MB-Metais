@@ -10,3 +10,15 @@
     document.documentElement.dataset.theme = 'light';
   }
 })();
+
+// o link de confirmação do e-mail pode cair na página inicial (painel da equipe): leva para a loja, com o código
+(function () {
+  try {
+    var pn = location.pathname.replace(/\/+$/, '') || '/';
+    if (/^(\/|\/index(\.html)?)$/.test(pn) && /access_token=|error_description=/.test(location.hash)) {
+      location.replace('/loja' + location.hash);
+    }
+  } catch (e) {
+    /* segue normalmente */
+  }
+})();

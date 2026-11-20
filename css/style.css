@@ -747,3 +747,9 @@ code { background: var(--soft); padding: 2px 6px; border-radius: 6px; font-size:
 .login-card .btn.lc-btn:hover { filter: brightness(1.15); }
 .lc-safe { display: flex; gap: 8px; align-items: flex-start; margin: 16px 0 0; font-size: 0.8rem; color: var(--muted); }
 .lc-safe svg { width: 16px; height: 16px; flex: none; margin-top: 1px; color: var(--ok); }
+
+/* Produtos: quanto falta montar para os pedidos */
+.need-box { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: var(--bad-soft, rgba(191, 61, 54, 0.1)); border: 1px solid rgba(191, 61, 54, 0.35); color: var(--bad); }
+.need-box strong { font-size: 1.9rem; line-height: 1; min-width: 1.4em; text-align: center; }
+.need-box span { display: grid; font-weight: 700; font-size: 0.88rem; line-height: 1.25; }
+.need-box small { font-weight: 500; color: var(--muted); font-size: 0.78rem; }

@@ -727,8 +727,11 @@
     const manager = App.isManager();
     const byId = L.partsById(App.state.parts);
     const stock = L.stockMap(App.state.parts);
+    const pending = L.pendingByProduct(App.state.orders || [], App.state.products);
     const q = App.prodFilter.trim().toLowerCase();
-    const list = App.state.products.filter((p) => !q || [p.name, p.code, p.category].join(' ').toLowerCase().includes(q));
+    const list = App.state.products
+      .filter((p) => !q || [p.name, p.code, p.category].join(' ').toLowerCase().includes(q))
+      .sort((x, y) => ((pending[y.id] && pending[y.id].qty) || 0) - ((pending[x.id] && pending[x.id].qty) || 0)); // quem tem pedido esperando vem primeiro
     if (!list.length) return `<div class="empty card" style="grid-column:1/-1">${App.state.products.length ? 'Nenhum produto encontrado para essa busca.' : 'Nenhum produto cadastrado.'}</div>`;
     return list
       .map((p) => {
@@ -750,11 +753,16 @@
             <div><span>Margem</span><b>${pct(m.pct)}</b></div>
           </div>`;
         }
+        const pend = pending[p.id];
+        const pendHtml = pend
+          ? `<div class="need-box" title="Quanto ainda precisa ser montado para completar os pedidos em andamento"><strong>${int(pend.qty)}</strong><span>faltam montar para os pedidos<small>${pend.orders.map((n) => '#' + n).join(', ')}</small></span></div>`
+          : '';
         return `<article class="card prod-card neutral">
-          ${media('product', p)}
+          ${media('product', p, pend ? `<span class="badge bad">Faltam ${int(pend.qty)}</span>` : '')}
           <div class="body">
             <div class="cat">${esc(p.category)}${p.code ? ` · ${esc(p.code)}` : ''}</div>
             <h3>${esc(p.name)}</h3>
+            ${pendHtml}
             <div><span class="pill ready">${int(p.ready || 0)} montado${(p.ready || 0) === 1 ? '' : 's'} (pronto${(p.ready || 0) === 1 ? '' : 's'})</span></div>
             <div><span class="hint">Ficha técnica (por unidade)</span><ul class="bom">${items || '<li class="muted">Nenhuma peça cadastrada.</li>'}</ul></div>
             ${money}

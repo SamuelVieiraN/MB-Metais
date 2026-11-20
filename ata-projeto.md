@@ -137,3 +137,11 @@ Mostruário com fotos, Peças, Produtos (ficha técnica e montagem), Simulação
 - Frete: ainda não existe tabela de frete; mostra "A combinar" e a equipe informa na proposta. Entrega/retirada e CEP vão dentro da observação da solicitação.
 - Login da equipe com o mesmo visual profissional da loja (tudo em português).
 - Páginas legais (20/11): novo layout institucional (privacidade, termos, cookies, direitos): cabeçalho fixo com botão "Voltar à loja" que acompanha a rolagem, menu lateral Institucional, índice "Nesta página" com destaque da seção, rodapé e tema claro/escuro. Montado por js/legal.js; textos continuam rascunhos para revisão jurídica.
+
+### Conta do cliente, endereços e produção (20/11/2026, madrugada)
+- Cadastro: requisitos da senha aparecem logo abaixo do campo e vão acendendo ao digitar; olho para ver a senha; aviso ao vivo se as duas senhas são iguais.
+- Link de confirmação do e-mail: se cair na página inicial (painel da equipe), é levado para a loja com o código. No Supabase, em Authentication > URL Configuration: Site URL `https://mb-metais.vercel.app/loja` e Redirect URLs `https://mb-metais.vercel.app/**` (o dono precisa conferir).
+- Minha conta: nome, CPF/CNPJ e e-mail travados em cinza (só o telefone muda; regra também no servidor); nova aba Endereços (até 10, principal, editar, excluir); trocar a senha exige a senha atual + nova + repetir (pelo link "esqueci a senha" não pede a atual).
+- Finalização: o cliente escolhe um dos endereços salvos (ou cadastra outro na hora); o endereço escolhido vai na observação da solicitação.
+- Migração 11 (`supabase/migracao-11-enderecos.sql`, também no schema.sql): tabela customer_addresses + funções my_addresses, save_my_address, set_default_address, delete_my_address; update_my_customer só muda telefone; export inclui endereços. Testada: 25 verificações em banco novo e migrado (repetida). STATUS: aguardando aval do dono para aplicar em produção.
+- App, Produção > Produtos: cada produto mostra quantas unidades ainda faltam montar para completar os pedidos em andamento (e de quais pedidos); quem tem falta aparece primeiro. Faixa vermelha "Faltam N" na foto.

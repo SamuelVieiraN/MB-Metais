@@ -514,7 +514,19 @@
   }
 
   // ----- página de finalização -----
-  let chk = { mode: 'entrega', cep: '', addr: null, msg: '' };
+  let chk = { mode: 'entrega', cep: '', addr: null, msg: '', addrId: null };
+  let addrs = null; // endereços salvos do cliente (null = ainda não carregou)
+  let recoverMode = false; // entrou pelo link de "esqueci a senha": não precisa da senha atual
+  const addrFull = (a) => `${a.street}, ${a.number}${a.complement ? ' - ' + a.complement : ''}${a.district ? ', ' + a.district : ''}, ${a.city}/${a.uf} · CEP ${V.maskCEP(a.cep)}`;
+  const selAddr = () => (addrs || []).find((a) => a.id === chk.addrId) || (addrs || []).find((a) => a.is_default) || (addrs || [])[0] || null;
+  async function loadAddrs() {
+    try {
+      addrs = (await rpc('my_addresses', {}, true)) || [];
+    } catch (e) {
+      addrs = [];
+    }
+    return addrs;
+  }
 
   const addrLine = (a) => [a.street, a.district, a.city && a.uf ? `${a.city}/${a.uf}` : a.city].filter(Boolean).join(' · ');
 
@@ -539,6 +551,20 @@
     let body;
     if (chk.mode === 'retirada') {
       body = `<div class="chk-result ok">${icons.store}<div><b>Retirada na empresa</b><p>${esc(CO.address || 'Endereço da empresa')}</p><p class="muted">Combinamos o dia e o horário pelo telefone ou e-mail.</p></div></div>`;
+    } else if (session && me && me.registered) {
+      if (addrs === null) body = '<p class="hint"><span class="spinner"></span> Carregando seus endereços…</p>';
+      else if (!addrs.length) body = `<div class="chk-result">${icons.truck}<div><b>Você ainda não tem endereço de entrega</b><p class="muted">Cadastre um endereço para continuar.</p><p><button type="button" class="btn primary" data-act="addr-new">Adicionar endereço</button></p></div></div>`;
+      else {
+        const sel = selAddr();
+        body = `<div class="chk-addrs" role="radiogroup" aria-label="Endereço de entrega">${addrs
+          .map(
+            (a) => `<label class="chk-addr ${sel && sel.id === a.id ? 'on' : ''}"><input type="radio" name="addr" value="${esc(a.id)}" ${sel && sel.id === a.id ? 'checked' : ''} />
+              <span><b>${esc(a.label || 'Endereço')}</b>${a.is_default ? ' <em class="pill info">Principal</em>' : ''}<small>${esc(addrFull(a))}</small></span></label>`
+          )
+          .join('')}</div>
+          <p><button type="button" class="btn" data-act="addr-new">${icons.plus} Adicionar outro endereço</button></p>
+          <p class="muted" style="font-size:.86rem">O valor do frete e o prazo são informados pela nossa equipe na proposta, antes de você fechar o pedido.</p>`;
+      }
     } else {
       body = `<div class="chk-cep"><label>CEP de entrega<input id="chk-cep" inputmode="numeric" maxlength="9" placeholder="00000-000" value="${esc(chk.cep)}" autocomplete="postal-code" /></label><button type="button" class="btn" data-act="calc">Calcular</button></div>
         <p class="hint"><a href="https://buscacepinter.correios.com.br/app/endereco/index.php" target="_blank" rel="noopener">Não sei meu CEP</a></p>
@@ -573,11 +599,7 @@
     const ids = cartIds();
     if (!ids.length) return `<div class="card empty" style="margin-top:24px"><p><b>Sua solicitação está vazia.</b></p><p><button class="btn primary" data-act="home">Ver produtos</button></p></div>`;
     const logged = !!(session && me && me.registered);
-    if (logged && !chk.cep && me.cep) {
-      chk.cep = V.maskCEP(me.cep);
-      chk.addr = { street: me.street, district: me.district, city: me.city, uf: me.uf };
-    }
-    const done = (n) => (n === 1 ? true : n === 2 ? logged : n === 3 ? chk.mode === 'retirada' || !!chk.addr : false);
+    const done = (n) => (n === 1 ? true : n === 2 ? logged : n === 3 ? chk.mode === 'retirada' || (logged ? !!selAddr() : !!chk.addr) : false);
     const step = (n, l) => `<li class="${done(n) ? 'done' : ''}"><b>${done(n) ? '✓' : n}</b><span>${l}</span></li>`;
     const dataBlock = logged
       ? `<div class="chk-data"><div><b>${esc(me.name)}</b><span>${labelDoc(me.kind)} ${esc(V.fmtDoc(me.kind, me.doc))}</span></div><div><span>${esc(me.email)}</span><span>${esc(V.maskPhone(me.phone || ''))}</span></div><p class="hint">Quer corrigir algum dado? <a href="#/conta" data-act="account">Minha conta &rarr; Meus dados</a></p></div>`
@@ -627,6 +649,8 @@
 
   const deliveryNote = () => {
     if (chk.mode === 'retirada') return 'RETIRADA NA EMPRESA';
+    const sa = session && me && me.registered ? selAddr() : null;
+    if (sa) return `ENTREGA em ${addrFull(sa)}`;
     const a = chk.addr;
     return `ENTREGA${a ? ' em ' + addrLine(a) : ''}${chk.cep ? ' · CEP ' + chk.cep : ''}`;
   };
@@ -648,6 +672,10 @@
         busy(btn, false);
         return openComplete('Falta completar o seu cadastro para enviar a solicitação.');
       }
+      if (chk.mode === 'entrega' && !selAddr()) {
+        busy(btn, false);
+        return showErr('Escolha ou cadastre um endereço de entrega (ou use Retirada).');
+      }
       if (me.needs_terms) {
         busy(btn, false);
         return openTerms();
@@ -656,7 +684,7 @@
       await rpc('create_request', { p_items: items, p_note: note }, true);
       cart = {};
       cartNote = '';
-      chk = { mode: 'entrega', cep: '', addr: null, msg: '' };
+      chk = { mode: 'entrega', cep: '', addr: null, msg: '', addrId: null };
       saveCart();
       renderTop();
       myReqs = null;
@@ -813,6 +841,39 @@
   // moldura das janelas de entrar / criar conta (estilo de painel profissional)
   const authLogo = `<svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3C16 3 6 14.2 6 20.5a10 10 0 0 0 20 0C26 14.2 16 3 16 3z" fill="currentColor"/><path d="M11.5 20.8a4.6 4.6 0 0 0 4.2 4.4" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>`;
   const pwField = (name, auto, extra) => `<span class="au-field">${icons.lock}<input name="${name}" type="password" autocomplete="${auto}" placeholder="${name === 'password2' ? 'Repita a senha' : 'Digite sua senha'}" ${extra || ''} required /><button type="button" class="au-eye" data-act="toggle-pass" aria-label="Mostrar ou ocultar a senha">${icons.eye}</button></span>`;
+  const PW_RULES = [
+    ['len', 'Pelo menos 10 caracteres', (p) => p.length >= 10],
+    ['let', 'Pelo menos uma letra', (p) => /[A-Za-z]/.test(p)],
+    ['num', 'Pelo menos um número', (p) => /\d/.test(p)],
+    ['mail', 'Diferente do seu e-mail', (p, mail) => !mail || p.toLowerCase() !== mail.toLowerCase()],
+  ];
+  const pwRulesHtml = (withMail) =>
+    `<ul class="pw-rules" id="pw-rules" aria-live="polite"><li class="pw-title">Sua senha precisa ter:</li>${PW_RULES.filter((r) => withMail || r[0] !== 'mail')
+      .map((r) => `<li data-r="${r[0]}"><span class="pw-dot" aria-hidden="true"></span>${r[1]}</li>`)
+      .join('')}</ul>`;
+  function updatePwUi(form) {
+    const pwEl = form.password || form.p1;
+    const pw2 = form.password2 || form.p2;
+    const box = $('#pw-rules', form);
+    if (box && pwEl) {
+      const mail = form.email ? String(form.email.value || '').trim() : '';
+      PW_RULES.forEach((r) => {
+        const li = $(`[data-r="${r[0]}"]`, box);
+        if (li) li.classList.toggle('ok', !!pwEl.value && r[2](pwEl.value, mail));
+      });
+    }
+    const m = $('#pw-match', form);
+    if (m && pwEl && pw2) {
+      if (!pw2.value) m.textContent = '';
+      else if (pw2.value === pwEl.value) {
+        m.textContent = 'As senhas são iguais.';
+        m.className = 'hint pw-match fld-ok';
+      } else {
+        m.textContent = 'As senhas ainda não são iguais.';
+        m.className = 'hint pw-match fld-bad';
+      }
+    }
+  }
   function authShell(mode, title, sub, inner, foot) {
     const seg = `<div class="au-seg" role="tablist" aria-label="Entrar ou criar conta">
       <button type="button" role="tab" aria-selected="${mode === 'entrar'}" class="${mode === 'entrar' ? 'on' : ''}" data-act="auth-mode" data-m="entrar">${icons.logout} Entrar</button>
@@ -894,8 +955,8 @@
           <p class="au-sec">Acesso</p>
           <div class="form-grid">
             <label>E-mail<input name="email" type="email" autocomplete="email" inputmode="email" required /></label>
-            <label class="s3">Senha<input name="password" type="password" autocomplete="new-password" minlength="10" required /><span class="hint">Mínimo de 10 caracteres.</span></label>
-            <label class="s3">Repita a senha<input name="password2" type="password" autocomplete="new-password" required /></label>
+            <div class="s6 pw-box"><label class="au-lbl">Senha${pwField('password', 'new-password', 'minlength="10"')}</label>${pwRulesHtml(true)}</div>
+            <div class="s6"><label class="au-lbl">Repita a senha${pwField('password2', 'new-password')}</label><span class="hint pw-match" id="pw-match"></span></div>
           </div>
           <p class="au-sec">${authKind === 'pj' ? 'Dados da empresa' : 'Seus dados'}</p>
           ${fieldsHtml(authKind, {}, false)}
@@ -1020,6 +1081,8 @@
     saveSession(null);
     me = null;
     myReqs = null;
+    addrs = null;
+    recoverMode = false;
     if (token) {
       try {
         await fetch(`${base}/auth/v1/logout`, { method: 'POST', headers: { apikey: anon, Authorization: `Bearer ${token}` } });
@@ -1135,19 +1198,46 @@
           })
           .join('');
     } else if (acTab === 'dados') {
-      body = `<form id="f-data" class="card" novalidate>
+      const lock = (label, val) => `<label class="s3 locked">${label}<span class="lk-field"><input type="text" value="${esc(val)}" readonly tabindex="-1" aria-readonly="true" />${icons.lock}</span></label>`;
+      body = `<form id="f-data" class="card" novalidate style="max-width:760px">
         <h3>Meus dados</h3>
-        <p class="muted">E-mail da conta: <b>${esc(me.email)}</b> · ${labelDoc(me.kind)} ${esc(V.fmtDoc(me.kind, me.doc))} (o documento não pode ser alterado aqui; fale com a empresa se precisar).</p>
-        ${fieldsHtml(me.kind, me, true)}
+        <p class="lk-note">${icons.lock}<span>Os campos em cinza são fixos por segurança. Para corrigir nome, documento ou e-mail, fale com a empresa.</span></p>
+        <div class="form-grid" style="margin-top:12px">
+          ${lock(labelName(me.kind), me.name)}
+          ${lock(labelDoc(me.kind), V.fmtDoc(me.kind, me.doc))}
+          ${lock('E-mail da conta', me.email)}
+          <label class="s3">Telefone / WhatsApp<input name="phone" type="tel" inputmode="tel" maxlength="16" autocomplete="tel-national" placeholder="(85) 99999-9999" value="${esc(me.phone ? V.maskPhone(me.phone) : '')}" required /></label>
+        </div>
         <p class="form-error" id="f-err" role="alert" hidden></p>
-        <div class="modal-actions"><button type="submit" class="btn primary">Salvar alterações</button></div>
+        <div class="modal-actions"><button type="submit" class="btn primary">Salvar telefone</button></div>
       </form>`;
+    } else if (acTab === 'enderecos') {
+      if (addrs === null) body = `<div class="loading"><span class="spinner"></span> Carregando…</div>`;
+      else
+        body = `<div class="card" style="max-width:760px">
+          <div class="ad-head"><div><h3>Endereços de entrega</h3><p class="muted">Cadastre mais de um endereço (casa, obra, empresa) e escolha qual usar ao finalizar a solicitação.</p></div>
+          <button class="btn primary" data-act="addr-new">${icons.plus} Novo endereço</button></div>
+          ${
+            addrs.length
+              ? `<div class="ad-list">${addrs
+                  .map(
+                    (a) => `<article class="ad-card ${a.is_default ? 'main' : ''}">
+                    <div><b>${esc(a.label || 'Endereço')}</b>${a.is_default ? ' <em class="pill ok">Principal</em>' : ''}<p>${esc(addrFull(a))}</p></div>
+                    <div class="ad-act">${a.is_default ? '' : `<button class="btn small" data-act="addr-main" data-id="${esc(a.id)}">Tornar principal</button>`}
+                      <button class="btn small" data-act="addr-edit" data-id="${esc(a.id)}">Editar</button>
+                      <button class="btn small danger" data-act="addr-del" data-id="${esc(a.id)}">Excluir</button></div></article>`
+                  )
+                  .join('')}</div>`
+              : '<p class="muted" style="margin-top:14px">Você ainda não cadastrou nenhum endereço.</p>'
+          }</div>`;
     } else if (acTab === 'seguranca') {
       body = `<form id="f-pass" class="card" novalidate style="max-width:460px">
         <h3>Trocar a senha</h3>
+        ${recoverMode ? '<p class="muted">Você entrou pelo link do e-mail. Crie a nova senha abaixo.</p>' : '<p class="muted">Por segurança, informe a senha atual antes de criar a nova.</p>'}
         <div class="form-grid" style="margin-top:10px">
-          <label>Nova senha<input name="p1" type="password" autocomplete="new-password" minlength="10" required /><span class="hint">Mínimo de 10 caracteres, com letras e números.</span></label>
-          <label>Repita a nova senha<input name="p2" type="password" autocomplete="new-password" required /></label>
+          ${recoverMode ? '' : `<div class="s6"><label class="au-lbl">Senha atual${pwField('pold', 'current-password')}</label></div>`}
+          <div class="s6 pw-box"><label class="au-lbl">Nova senha${pwField('p1', 'new-password', 'minlength="10"')}</label>${pwRulesHtml(false)}</div>
+          <div class="s6"><label class="au-lbl">Repita a nova senha${pwField('p2', 'new-password')}</label><span class="hint pw-match" id="pw-match"></span></div>
         </div>
         <p class="form-error" id="f-err" role="alert" hidden></p>
         <div class="modal-actions"><button type="submit" class="btn primary">Trocar a senha</button></div>
@@ -1168,7 +1258,7 @@
         <h1 style="font-size:1.5rem">Olá, ${esc(firstName(me.name))}</h1>
         <p style="margin:0">${labelDoc(me.kind)} ${esc(V.fmtDoc(me.kind, me.doc))} · ${esc(me.email)}</p>
       </section>
-      <div class="lj-bar"><div class="chips">${tab('solicitacoes', 'Minhas solicitações')}${tab('dados', 'Meus dados')}${tab('seguranca', 'Senha')}${tab('privacidade', 'Privacidade')}</div>
+      <div class="lj-bar"><div class="chips">${tab('solicitacoes', 'Minhas solicitações')}${tab('dados', 'Meus dados')}${tab('enderecos', 'Endereços')}${tab('seguranca', 'Senha')}${tab('privacidade', 'Privacidade')}</div>
         <button class="btn" data-act="logout">Sair</button></div>
       <div class="lj-acc">${body}</div>`;
   }
@@ -1201,6 +1291,10 @@
       main.innerHTML = viewCheckout();
       document.title = 'Finalizar solicitação | M&B Metais';
       window.scrollTo({ top: 0 });
+      if (session && me && me.registered && addrs === null) {
+        await loadAddrs();
+        if (location.hash.startsWith('#/finalizar')) main.innerHTML = viewCheckout();
+      }
       return;
     }
     if (hash.startsWith('#/conta')) {
@@ -1227,6 +1321,10 @@
         return openComplete('Falta completar o seu cadastro.');
       }
       main.innerHTML = viewAccount();
+      if (acTab === 'enderecos' && addrs === null) {
+        await loadAddrs();
+        if (location.hash.startsWith('#/conta')) main.innerHTML = viewAccount();
+      }
       if (acTab === 'solicitacoes' && myReqs === null) {
         await loadReqs();
         if (location.hash.startsWith('#/conta')) main.innerHTML = viewAccount();
@@ -1367,6 +1465,29 @@
       lastCep = '';
       openComplete();
     },
+    'addr-new': () => openAddr(null),
+    'addr-edit': (el) => openAddr((addrs || []).find((a) => a.id === el.dataset.id)),
+    'addr-main': async (el) => {
+      try {
+        await rpc('set_default_address', { p_id: el.dataset.id }, true);
+        await loadAddrs();
+        refreshAddrViews();
+      } catch (e) {
+        toast(e.message, 'error');
+      }
+    },
+    'addr-del': async (el) => {
+      if (!(await confirmBox('Excluir este endereço?', 'Excluir endereço', true))) return;
+      try {
+        await rpc('delete_my_address', { p_id: el.dataset.id }, true);
+        chk.addrId = null;
+        await loadAddrs();
+        refreshAddrViews();
+        toast('Endereço excluído.');
+      } catch (e) {
+        toast(e.message, 'error');
+      }
+    },
     actab: (el) => {
       acTab = el.dataset.id;
       route();
@@ -1441,7 +1562,7 @@
       if (p) p.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
     }
-    const h = { 'f-login': doLogin, 'f-signup': doSignup, 'f-recover': doRecover, 'f-complete': doComplete, 'f-terms': doTerms, 'f-cart': sendRequest }[f.id];
+    const h = { 'f-login': doLogin, 'f-signup': doSignup, 'f-recover': doRecover, 'f-complete': doComplete, 'f-terms': doTerms, 'f-cart': sendRequest, 'f-addr': saveAddr }[f.id];
     if (h) {
       e.preventDefault();
       h(f);
@@ -1457,17 +1578,72 @@
     }
   });
 
+  // ---------------- endereços ----------------
+  function openAddr(a) {
+    a = a || {};
+    lastCep = '';
+    openDlg(`<form id="f-addr" novalidate data-id="${esc(a.id || '')}" style="padding:24px;max-width:640px">
+      <h2 style="margin:0 0 4px">${a.id ? 'Editar endereço' : 'Novo endereço'}</h2>
+      <p class="muted" style="margin:0 0 12px">Digite o CEP e o resto é preenchido sozinho.</p>
+      <div class="form-grid">
+        <label class="s6">Apelido (opcional)<input name="label" type="text" maxlength="40" placeholder="Ex.: Casa, Obra, Empresa" value="${esc(a.label || '')}" /></label>
+        <label class="s2">CEP<input name="cep" type="text" inputmode="numeric" maxlength="9" autocomplete="postal-code" placeholder="00000-000" value="${esc(a.cep ? V.maskCEP(a.cep) : '')}" required /><span class="hint" id="cep-hint"></span></label>
+        <label class="s4">Rua<input name="street" type="text" maxlength="120" value="${esc(a.street || '')}" required /></label>
+        <label class="s2">Número<input name="number" type="text" maxlength="10" placeholder="S/N" value="${esc(a.number || '')}" required /></label>
+        <label class="s4">Complemento (opcional)<input name="complement" type="text" maxlength="60" value="${esc(a.complement || '')}" /></label>
+        <label class="s3">Bairro<input name="district" type="text" maxlength="80" value="${esc(a.district || '')}" /></label>
+        <label class="s3">Cidade<input name="city" type="text" maxlength="80" value="${esc(a.city || '')}" required /></label>
+        <label class="s2">UF<select name="uf" required><option value="">UF</option>${UFS.map((u) => `<option ${a.uf === u ? 'selected' : ''}>${u}</option>`).join('')}</select></label>
+      </div>
+      <p class="form-error" id="f-err" role="alert" hidden></p>
+      <div class="modal-actions"><button type="button" class="btn" data-act="close">Cancelar</button><button type="submit" class="btn primary">Salvar endereço</button></div>
+    </form>`);
+  }
+
+  async function saveAddr(form) {
+    const g = (n) => String((form[n] && form[n].value) || '').trim();
+    const d = { label: g('label'), cep: V.digits(g('cep')), street: g('street'), number: g('number'), complement: g('complement'), district: g('district'), city: g('city'), uf: g('uf').toUpperCase() };
+    if (d.cep.length !== 8) return showErr('Informe o CEP com 8 números.');
+    if (d.street.length < 2) return showErr('Informe a rua.');
+    if (!d.number) return showErr('Informe o número (ou S/N).');
+    if (d.city.length < 2) return showErr('Informe a cidade.');
+    if (!UFS.includes(d.uf)) return showErr('Escolha o estado (UF).');
+    const btn = $('button[type=submit]', form);
+    busy(btn, true);
+    try {
+      const id = await rpc('save_my_address', { p_id: form.dataset.id || null, p_data: d }, true);
+      await loadAddrs();
+      closeDlg();
+      chk.addrId = id;
+      toast('Endereço salvo.');
+      refreshAddrViews();
+    } catch (e) {
+      showErr(e.message);
+    } finally {
+      busy(btn, false);
+    }
+  }
+
+  function refreshAddrViews() {
+    const h = location.hash || '#/';
+    if (h.startsWith('#/finalizar')) {
+      const d = $('#chk-del');
+      if (d) d.innerHTML = chkDeliveryHtml();
+    } else if (h.startsWith('#/conta')) {
+      $('#lj-main').innerHTML = viewAccount();
+    }
+  }
+
   async function saveData(form) {
-    errBox() && (errBox().hidden = true);
-    const cad = readCad(form, me.kind);
-    cad.doc = me.doc;
-    const bad = validateCad(cad, false);
     const e0 = $('#f-err', form);
-    if (bad) {
-      e0.textContent = bad;
+    e0.hidden = true;
+    const phone = V.digits(form.phone.value);
+    if (!V.validPhone(phone)) {
+      e0.textContent = 'Informe o telefone com DDD.';
       e0.hidden = false;
       return;
     }
+    const cad = { phone };
     const btn = $('button[type=submit]', form);
     busy(btn, true);
     try {
@@ -1491,13 +1667,26 @@
       e0.textContent = m;
       e0.hidden = false;
     };
-    if (p1.length < 10 || !/[A-Za-z]/.test(p1) || !/\d/.test(p1)) return fail('Use pelo menos 10 caracteres, com letras e números.');
-    if (p1 !== form.p2.value) return fail('As duas senhas não são iguais.');
+    if (!recoverMode && !form.pold.value) return fail('Informe a senha atual.');
+    if (p1.length < 10 || !/[A-Za-z]/.test(p1) || !/\d/.test(p1)) return fail('A nova senha precisa ter pelo menos 10 caracteres, com letras e números.');
+    if (me && me.email && p1.toLowerCase() === String(me.email).toLowerCase()) return fail('A senha não pode ser igual ao e-mail.');
+    if (p1 !== form.p2.value) return fail('As duas senhas novas não são iguais.');
+    if (!recoverMode && p1 === form.pold.value) return fail('A nova senha precisa ser diferente da atual.');
     const btn = $('button[type=submit]', form);
     busy(btn, true);
     try {
+      if (!recoverMode) {
+        // confere a senha atual entrando de novo com ela
+        try {
+          saveSession(toSession(await call('/auth/v1/token?grant_type=password', { method: 'POST', body: { email: me.email, password: form.pold.value } })));
+        } catch (err) {
+          throw new Error('A senha atual está incorreta.');
+        }
+      }
       await call('/auth/v1/user', { method: 'PUT', body: { password: p1 }, auth: true });
+      recoverMode = false;
       form.reset();
+      updatePwUi(form);
       toast('Senha trocada.');
     } catch (err) {
       fail(err.message);
@@ -1515,6 +1704,8 @@
       saveSession(null);
       me = null;
       myReqs = null;
+      addrs = null;
+      recoverMode = false;
       cart = {};
       saveCart();
       renderTop();
@@ -1539,6 +1730,7 @@
       }
       syncCatalog();
     } else if (t.name === 'cep') onCepInput(t);
+    else if (['password', 'password2', 'p1', 'p2', 'email'].includes(t.name) && t.closest('form') && $('#pw-rules', t.closest('form'))) updatePwUi(t.closest('form'));
     else if (t.name === 'doc' && !t.readOnly) {
       const form = t.closest('form');
       const kind = form.id === 'f-data' ? me.kind : authKind;
@@ -1548,6 +1740,15 @@
       const n = Math.max(1, Math.min(9999, Math.floor(Number(t.value) || 1)));
       cart[t.dataset.cqin] = n;
       saveCart();
+    }
+  });
+
+  document.addEventListener('change', (e) => {
+    const t = e.target;
+    if (t && t.name === 'addr' && t.type === 'radio') {
+      chk.addrId = t.value;
+      const d = $('#chk-del');
+      if (d) d.innerHTML = chkDeliveryHtml();
     }
   });
 
@@ -1605,6 +1806,7 @@
     if (link && link.error) openAuth('entrar', 'O link expirou ou já foi usado. Entre com e-mail e senha ou peça um novo link.');
     else if (link && link.type === 'recovery' && session) {
       acTab = 'seguranca';
+      recoverMode = true;
       location.hash = '#/conta';
       toast('Crie agora a sua nova senha.');
     } else if (link && session && me && me.registered === false) {
