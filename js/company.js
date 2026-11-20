@@ -19,5 +19,8 @@ window.COMPANY = {
   // Encarregado pelo tratamento de dados pessoais (LGPD, art. 41). Pode ser o próprio dono.
   dpoName: '',
   dpoEmail: '',
+  // Banners do início da loja (opcional). Se ficar vazio, usa os textos padrão. Exemplo:
+  // banners: [{ eyebrow: 'Novidade', title: 'Linha nova de torneiras', text: 'Confira os lançamentos.', cta: 'Ver produtos' }],
+  banners: [],
   termsVersion: '2026-11-19',
 };

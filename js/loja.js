@@ -293,6 +293,67 @@
     return `${n} produto${n === 1 ? '' : 's'}${cat ? ' em ' + esc(cat) : ''}`;
   };
 
+  // ---------------- banner de divulgação (troca sozinho) ----------------
+  let bn = 0;
+  let bnPaused = false;
+  function slides() {
+    const ready = (catalog || []).filter((p) => p.in_stock && p.photos[0]).slice(0, 3);
+    const custom = Array.isArray(CO.banners) && CO.banners.length ? CO.banners : null;
+    if (custom) return custom.map((b, i) => ({ tone: i % 4, eyebrow: b.eyebrow || '', title: b.title || '', text: b.text || '', cta: b.cta || 'Ver produtos', act: 'browse', icon: icons.store }));
+    const list = [
+      { tone: 0, eyebrow: 'Fabricação própria em metal', title: 'Torneiras, duchas e acessórios para a sua obra', text: 'Escolha os produtos e envie a sua solicitação. Nossa equipe confirma preço, prazo e disponibilidade com você.', cta: 'Ver produtos', act: 'browse', icon: icons.drop },
+    ];
+    if (ready.length) list.push({ tone: 1, eyebrow: 'Pronta entrega', title: 'Produtos montados, prontos para sair', text: 'Confira os modelos que já estão montados e disponíveis agora.', cta: 'Ver pronta entrega', act: 'ready', photos: ready.map((p) => p.photos[0]), icon: icons.box });
+    list.push(
+      { tone: 2, eyebrow: 'Cadastro rápido', title: 'Crie sua conta em 2 minutos', text: 'Para pessoa física ou empresa. Digite o CEP e o endereço é preenchido sozinho.', cta: 'Criar minha conta', act: 'signup', icon: icons.user },
+      { tone: 3, eyebrow: 'Atendimento direto', title: 'Preço e prazo confirmados com você', text: 'Você envia a solicitação sem compromisso e recebe a proposta da nossa equipe antes de fechar o pedido.', cta: 'Começar a solicitação', act: 'browse', icon: icons.chat }
+    );
+    return list;
+  }
+
+  function bannerHtml() {
+    const sl = slides();
+    if (bn >= sl.length) bn = 0;
+    return `<section class="lj-banner" aria-roledescription="carrossel" aria-label="Destaques da loja">
+      <div class="lj-slides">${sl
+        .map(
+          (x, i) => `<div class="lj-slide tone${x.tone} ${i === bn ? 'on' : ''}" ${i === bn ? '' : 'aria-hidden="true"'} data-i="${i}">
+          <div class="lj-slide-text">
+            <span class="lj-eyebrow">${esc(x.eyebrow)}</span>
+            <h1>${esc(x.title)}</h1>
+            <p>${esc(x.text)}</p>
+            <button class="btn primary big" data-act="bn-cta" data-a="${esc(x.act)}" ${i === bn ? '' : 'tabindex="-1"'}>${esc(x.cta)}</button>
+          </div>
+          <div class="lj-slide-art">${x.photos ? x.photos.map((u) => `<span class="lj-art-photo"><img src="${esc(u)}" alt="" loading="lazy" /></span>`).join('') : `<span class="lj-art-icon">${x.icon}</span>`}</div>
+        </div>`
+        )
+        .join('')}</div>
+      <button class="lj-bn-arrow prev" data-act="bn-prev" aria-label="Banner anterior">${icons.chevron}</button>
+      <button class="lj-bn-arrow next" data-act="bn-next" aria-label="Próximo banner">${icons.chevron}</button>
+      <div class="lj-bn-dots">${sl.map((_, i) => `<button class="${i === bn ? 'on' : ''}" data-act="bn-go" data-i="${i}" aria-label="Ir para o banner ${i + 1}"></button>`).join('')}</div>
+    </section>`;
+  }
+
+  function setBanner(i) {
+    const els = $$('.lj-slide');
+    if (!els.length) return;
+    bn = (i + els.length) % els.length;
+    els.forEach((el, k) => {
+      el.classList.toggle('on', k === bn);
+      if (k === bn) el.removeAttribute('aria-hidden');
+      else el.setAttribute('aria-hidden', 'true');
+      const b = $('button', el);
+      if (b) b.tabIndex = k === bn ? 0 : -1;
+    });
+    $$('.lj-bn-dots button').forEach((d, k) => d.classList.toggle('on', k === bn));
+  }
+
+  const reduceMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  setInterval(() => {
+    if (bnPaused || reduceMotion() || document.hidden || !$('.lj-banner') || (modal() && modal().open)) return;
+    setBanner(bn + 1);
+  }, 6000);
+
   function viewCatalog() {
     if (!online) {
       return `<div class="card empty" style="margin-top:24px"><p><b>A loja ainda não está conectada ao banco de dados.</b></p><p class="muted">Preencha o arquivo js/config.js (veja o README).</p></div>`;
@@ -303,15 +364,7 @@
     const li = (id, label) => `<li><button class="${cat === id ? 'on' : ''}" data-act="cat" data-id="${esc(id)}"><span>${esc(label)}</span><em>${count(id)}</em></button></li>`;
     const showBanner = !cat && !q.trim() && !onlyReady;
     return `
-      ${showBanner ? `<section class="lj-banner">
-        <div>
-          <span class="lj-eyebrow">Fabricação própria em metal</span>
-          <h1>Torneiras, duchas e acessórios para a sua obra</h1>
-          <p>Escolha os produtos, crie sua conta em 2 minutos e envie a solicitação. Nossa equipe confirma preço, prazo e disponibilidade com você.</p>
-          <button class="btn primary big" data-act="browse">Ver produtos</button>
-        </div>
-        <ol class="lj-steps2"><li><b>1</b><span>Escolha os produtos</span></li><li><b>2</b><span>Crie sua conta</span></li><li><b>3</b><span>Envie a solicitação</span></li><li><b>4</b><span>Receba a proposta</span></li></ol>
-      </section>` : ''}
+      ${showBanner ? bannerHtml() : ''}
       ${catErr ? `<div class="banner bad">${esc(catErr)}</div>` : ''}
       <div class="lj-layout" id="lj-products">
         <aside class="lj-filters" aria-label="Filtros">
@@ -588,59 +641,105 @@
   }
   const captchaToken = () => (turnstileId !== null && root.turnstile ? root.turnstile.getResponse(turnstileId) : '');
 
+  // moldura das janelas de entrar / criar conta (estilo de painel profissional)
+  const authLogo = `<svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3C16 3 6 14.2 6 20.5a10 10 0 0 0 20 0C26 14.2 16 3 16 3z" fill="currentColor"/><path d="M11.5 20.8a4.6 4.6 0 0 0 4.2 4.4" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>`;
+  const pwField = (name, auto, extra) => `<span class="au-field">${icons.lock}<input name="${name}" type="password" autocomplete="${auto}" placeholder="${name === 'password2' ? 'Repita a senha' : 'Digite sua senha'}" ${extra || ''} required /><button type="button" class="au-eye" data-act="toggle-pass" aria-label="Mostrar ou ocultar a senha">${icons.eye}</button></span>`;
+  function authShell(mode, title, sub, inner, foot) {
+    const seg = `<div class="au-seg" role="tablist" aria-label="Entrar ou criar conta">
+      <button type="button" role="tab" aria-selected="${mode === 'entrar'}" class="${mode === 'entrar' ? 'on' : ''}" data-act="auth-mode" data-m="entrar">${icons.logout} Entrar</button>
+      <button type="button" role="tab" aria-selected="${mode === 'criar' || mode === 'criar2'}" class="${mode === 'criar' || mode === 'criar2' ? 'on' : ''}" data-act="auth-mode" data-m="criar">${icons.plus} Criar conta</button></div>`;
+    return `<div class="au">
+      <button type="button" class="au-x" data-act="close" aria-label="Fechar">${icons.x}</button>
+      <div class="au-head"><span class="au-logo">${authLogo}</span><h2>${title}</h2>${sub ? `<p>${sub}</p>` : ''}</div>
+      ${seg}
+      <div class="au-body">${inner}</div>
+      <p class="au-safe">${icons.shield} Seus dados são protegidos conforme a LGPD.</p>
+      ${foot ? `<div class="au-foot">${foot}</div>` : ''}
+    </div>`;
+  }
+
   function openAuth(mode, msg) {
     mode = mode || 'entrar';
-    const tabs = `<div class="lj-tabs" role="tablist">
-      <button type="button" class="chip ${mode === 'entrar' ? 'on' : ''}" data-act="auth-mode" data-m="entrar">Entrar</button>
-      <button type="button" class="chip ${mode === 'criar' || mode === 'criar2' ? 'on' : ''}" data-act="auth-mode" data-m="criar">Criar conta</button></div>`;
+    const note = msg ? `<p class="lj-note">${esc(msg)}</p>` : '';
     if (mode === 'entrar') {
-      openDlg(`<form id="f-login" novalidate>
-        <h2>Entrar</h2>${tabs}
-        ${msg ? `<p class="lj-note">${esc(msg)}</p>` : ''}
-        <div class="form-grid" style="margin-top:12px">
-          <label>E-mail<input name="email" type="email" autocomplete="username" inputmode="email" required /></label>
-          <label>Senha<input name="password" type="password" autocomplete="current-password" required /></label>
-        </div>
-        <p class="form-error" id="f-err" role="alert" hidden></p>
-        <div class="modal-actions"><button type="button" class="btn ghost" data-act="auth-mode" data-m="recuperar">Esqueci a senha</button><button type="submit" class="btn primary">Entrar</button></div>
-      </form>`);
+      openDlg(
+        authShell(
+          mode,
+          'Bem-vindo de volta',
+          'Entre para acompanhar suas solicitações.',
+          `<form id="f-login" novalidate>
+          ${note}
+          <label class="au-lbl">E-mail
+            <span class="au-field">${icons.mail}<input name="email" type="email" autocomplete="username" inputmode="email" placeholder="Digite seu e-mail" required /></span>
+          </label>
+          <label class="au-lbl"><span class="au-row">Senha <button type="button" class="au-link" data-act="auth-mode" data-m="recuperar">Esqueci a senha</button></span>
+            ${pwField('password', 'current-password')}
+          </label>
+          <p class="form-error" id="f-err" role="alert" hidden></p>
+          <button type="submit" class="au-btn">Entrar</button>
+        </form>`,
+          `Ainda não tem conta? <button type="button" class="au-link strong" data-act="auth-mode" data-m="criar">Criar conta</button>`
+        ),
+        'auth'
+      );
     } else if (mode === 'recuperar') {
-      openDlg(`<form id="f-recover" novalidate>
-        <h2>Recuperar a senha</h2>
-        <p class="muted">Informe o e-mail da sua conta. Enviaremos um link para criar uma senha nova.</p>
-        <div class="form-grid"><label>E-mail<input name="email" type="email" autocomplete="username" inputmode="email" required /></label></div>
-        <p class="form-error" id="f-err" role="alert" hidden></p>
-        <div class="modal-actions"><button type="button" class="btn ghost" data-act="auth-mode" data-m="entrar">Voltar</button><button type="submit" class="btn primary">Enviar o link</button></div>
-      </form>`);
+      openDlg(
+        authShell(
+          'entrar',
+          'Recuperar a senha',
+          'Enviaremos um link para você criar uma senha nova.',
+          `<form id="f-recover" novalidate>
+          <label class="au-lbl">E-mail da sua conta
+            <span class="au-field">${icons.mail}<input name="email" type="email" autocomplete="username" inputmode="email" placeholder="Digite seu e-mail" required /></span>
+          </label>
+          <p class="form-error" id="f-err" role="alert" hidden></p>
+          <button type="submit" class="au-btn">Enviar o link</button>
+        </form>`,
+          `Lembrou a senha? <button type="button" class="au-link strong" data-act="auth-mode" data-m="entrar">Voltar para entrar</button>`
+        ),
+        'auth'
+      );
     } else if (mode === 'criar') {
-      openDlg(`<div style="padding:22px">
-        <h2>Criar conta</h2>${tabs}
-        <p><b>O cadastro é de pessoa física ou de empresa?</b></p>
-        <div class="lj-choose">
-          <button type="button" data-act="kind" data-k="pf"><b>Pessoa física</b><small class="muted">Cadastro com CPF</small></button>
-          <button type="button" data-act="kind" data-k="pj"><b>Empresa</b><small class="muted">Cadastro com CNPJ</small></button>
-        </div>
-        <p class="hint">Pedimos só o necessário para atender a sua solicitação e entregar. <a href="privacidade" target="_blank" rel="noopener">Como usamos seus dados</a>.</p>
-        <div class="modal-actions"><button type="button" class="btn ghost" data-act="close">Cancelar</button></div>
-      </div>`);
+      openDlg(
+        authShell(
+          mode,
+          'Criar sua conta',
+          'Primeiro, conte-nos quem vai comprar.',
+          `<p class="au-ask">O cadastro é de pessoa física ou de empresa?</p>
+          <div class="lj-choose">
+            <button type="button" data-act="kind" data-k="pf"><b>Pessoa física</b><small class="muted">Cadastro com CPF</small></button>
+            <button type="button" data-act="kind" data-k="pj"><b>Empresa</b><small class="muted">Cadastro com CNPJ</small></button>
+          </div>
+          <p class="hint">Pedimos só o necessário para atender a sua solicitação e entregar. <a href="privacidade" target="_blank" rel="noopener">Como usamos seus dados</a>.</p>`,
+          `Já tem conta? <button type="button" class="au-link strong" data-act="auth-mode" data-m="entrar">Entrar</button>`
+        ),
+        'auth'
+      );
     } else {
       openDlg(
-        `<form id="f-signup" novalidate>
-        <h2>Criar conta ${authKind === 'pj' ? 'de empresa' : 'de pessoa física'}</h2>${tabs}
-        <div class="form-grid">
-          <label>E-mail<input name="email" type="email" autocomplete="email" inputmode="email" required /></label>
-          <label class="s3">Senha<input name="password" type="password" autocomplete="new-password" minlength="10" required /><span class="hint">Mínimo de 10 caracteres.</span></label>
-          <label class="s3">Repita a senha<input name="password2" type="password" autocomplete="new-password" required /></label>
-        </div>
-        <hr style="border:0;border-top:1px solid var(--line);margin:16px 0" />
-        ${fieldsHtml(authKind, {}, false)}
-        <div class="hp" aria-hidden="true"><label>Site<input name="site" type="text" tabindex="-1" autocomplete="off" /></label></div>
-        <label class="check" style="margin-top:14px"><input type="checkbox" name="accept" required /><span>Li e concordo com os <a href="termos" target="_blank" rel="noopener">Termos de Uso</a> e com a <a href="privacidade" target="_blank" rel="noopener">Política de Privacidade</a>.</span></label>
-        <div id="ts-box" style="margin-top:12px"></div>
-        <p class="form-error" id="f-err" role="alert" hidden></p>
-        <div class="modal-actions"><button type="button" class="btn ghost" data-act="auth-mode" data-m="criar">Voltar</button><button type="submit" class="btn primary">Criar conta</button></div>
-      </form>`,
-        'wide'
+        authShell(
+          'criar',
+          `Conta ${authKind === 'pj' ? 'de empresa' : 'de pessoa física'}`,
+          'Preencha os dados abaixo. Leva cerca de 2 minutos.',
+          `<form id="f-signup" novalidate>
+          <p class="au-sec">Acesso</p>
+          <div class="form-grid">
+            <label>E-mail<input name="email" type="email" autocomplete="email" inputmode="email" required /></label>
+            <label class="s3">Senha<input name="password" type="password" autocomplete="new-password" minlength="10" required /><span class="hint">Mínimo de 10 caracteres.</span></label>
+            <label class="s3">Repita a senha<input name="password2" type="password" autocomplete="new-password" required /></label>
+          </div>
+          <p class="au-sec">${authKind === 'pj' ? 'Dados da empresa' : 'Seus dados'}</p>
+          ${fieldsHtml(authKind, {}, false)}
+          <div class="hp" aria-hidden="true"><label>Site<input name="site" type="text" tabindex="-1" autocomplete="off" /></label></div>
+          <label class="check" style="margin-top:14px"><input type="checkbox" name="accept" required /><span>Li e concordo com os <a href="termos" target="_blank" rel="noopener">Termos de Uso</a> e com a <a href="privacidade" target="_blank" rel="noopener">Política de Privacidade</a>.</span></label>
+          <div id="ts-box" style="margin-top:12px"></div>
+          <p class="form-error" id="f-err" role="alert" hidden></p>
+          <button type="submit" class="au-btn">Criar conta</button>
+          <button type="button" class="au-link center" data-act="auth-mode" data-m="criar">Voltar</button>
+        </form>`,
+          `Já tem conta? <button type="button" class="au-link strong" data-act="auth-mode" data-m="entrar">Entrar</button>`
+        ),
+        'auth wide'
       );
       mountCaptcha();
     }
@@ -993,6 +1092,21 @@
       }
       window.scrollTo({ top: 0 });
     },
+    'bn-next': () => setBanner(bn + 1),
+    'bn-prev': () => setBanner(bn - 1),
+    'bn-go': (el) => setBanner(Number(el.dataset.i)),
+    'bn-cta': (el) => {
+      const a = el.dataset.a;
+      if (a === 'signup') return openAuth('criar');
+      if (a === 'ready') {
+        onlyReady = true;
+        $('#lj-main').innerHTML = viewCatalog();
+        const p = $('#lj-products');
+        if (p) p.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+      A.browse();
+    },
     browse: () => {
       const p = $('#lj-products');
       if (p) p.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1026,6 +1140,10 @@
       showCart();
     },
     'auth-mode': (el) => openAuth(el.dataset.m),
+    'toggle-pass': (el) => {
+      const i = $('input', el.parentElement);
+      if (i) i.type = i.type === 'password' ? 'text' : 'password';
+    },
     kind: (el) => {
       authKind = el.dataset.k;
       lastCep = '';
@@ -1215,6 +1333,17 @@
       saveCart();
     }
   });
+
+  document.addEventListener('mouseover', (e) => {
+    if (e.target.closest && e.target.closest('.lj-banner')) bnPaused = true;
+  });
+  document.addEventListener('mouseout', (e) => {
+    if (e.target.closest && e.target.closest('.lj-banner')) bnPaused = false;
+  });
+  document.addEventListener('focusin', (e) => {
+    if (e.target.closest && e.target.closest('.lj-banner')) bnPaused = true;
+  });
+  document.addEventListener('focusout', () => (bnPaused = false));
 
   window.addEventListener('hashchange', route);
 
