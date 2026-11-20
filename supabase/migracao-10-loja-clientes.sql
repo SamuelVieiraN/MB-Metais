@@ -919,6 +919,12 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
+-- funções puras de validação: caminho de busca fixo (alerta do Supabase)
+alter function public.terms_version() set search_path = public;
+alter function public.valid_cnpj(text) set search_path = public;
+alter function public.valid_cpf(text) set search_path = public;
+alter function public._clean_doc(text) set search_path = public;
+
 -- ---------- permissões: só o necessário ----------
 -- Com o cadastro aberto, "usuário logado" passou a incluir clientes. Por isso, aqui as funções
 -- internas (_require_*, _order_items, _audit...) deixam de ser chamáveis de fora.
