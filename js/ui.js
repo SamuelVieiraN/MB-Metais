@@ -58,6 +58,10 @@
     chevL: ico('<path d="m14.5 6-6 6 6 6"/>'),
     chevR: ico('<path d="m9.5 6 6 6-6 6"/>'),
     chevD: ico('<path d="m6 9.5 6 6 6-6"/>'),
+    cart: ico('<path d="M3 4h2.4l2.1 11h9.8l2-8H6.6"/><circle cx="9.5" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/>'),
+    users: ico('<circle cx="9" cy="8.5" r="3.2"/><path d="M3 19.5a6 6 0 0 1 12 0"/><path d="M16 5.6a3.2 3.2 0 0 1 0 5.8M18 14.3a6 6 0 0 1 3 5.2"/>'),
+    link: ico('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'),
+    key: ico('<circle cx="8" cy="15" r="4"/><path d="m11 12 8.5-8.5M16 7l2.5 2.5M14 9l2 2"/>'),
   };
 
   // ---------- aviso rápido ----------

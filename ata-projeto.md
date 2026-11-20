@@ -95,6 +95,13 @@ Mostruário com fotos, Peças, Produtos (ficha técnica e montagem), Simulação
    - Testado: SQL da migração 9 (banco novo, migrado do 8, repetida; funcionário não vê cliente); e2e novo de menu/tema/calendário/prazo/celular 46 verificações + regressão 14; testes de lógica e planilhas. NÃO testado em Supabase real (o banco de produção estava na migração 8, sem due_date, quando conferido em 19/11/2026).
    - STATUS: entregue em 19/11/2026, aguardando rodar a migração 9 e publicar os arquivos.
 
+### Loja online, contas de cliente e segurança/LGPD (19/11/2026)
+- Pedido: catálogo público de demonstração com cadastro de clientes (PF/PJ, validação de CPF/CNPJ, busca de CEP, cadastro aberto) e solicitações que chegam ao sistema; aba Catálogo para o gerente marcar itens e precificar (padrão "Sob consulta"); checklist de segurança e LGPD.
+- Feito: migração 10 (papel "cliente", clientes, consentimentos, catálogo, solicitações, auditoria, limite de tentativas, exportar/excluir dados, 2 etapas exigida pelo servidor); loja.html/js; abas Loja online e Auditoria; 2FA TOTP; CSP e cabeçalhos no vercel.json; páginas privacidade/termos/cookies (rascunhos); docs/seguranca-lgpd.md.
+- Testes: 126 de banco, e2e 46 + 14 (equipe) + 40 (loja) + 31 (abas do gerente e 2FA), teste de XSS. NÃO testado em Supabase real; migração 10 ainda não aplicada em produção.
+- Decisões do dono: Supabase Pro adiado (backup segue manual); Dependabot ligado; cadastro aberto sem aprovação.
+- Pendências: preencher company.js; ajustes no painel do Supabase; revisão jurídica; pentest formal; backup automático; limite do catálogo anônimo.
+
 ## Pendências / próximos passos
 - Identidade visual da empresa: o usuário vai buscar catálogo/logo (previsto para 16/10) para personalizar cores, logo e rodapé.
 - Habilidade "designer-mb-metais" salva (10 ideias de visual/cores/estrutura); aplicar quando a logo chegar.

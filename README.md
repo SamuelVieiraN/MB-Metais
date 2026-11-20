@@ -80,6 +80,22 @@ As senhas de demonstração (`gerente@mbmetais.demo`) estão no código público
 ### Sobre os testes do banco
 O `schema.sql` foi testado em um PostgreSQL 16 com um simulador das funções do Supabase (regras de acesso, estoque, montagem atômica, funcionário sem acesso a custos). Ainda não foi rodado no seu projeto Supabase real: se aparecer erro ao executar, copie a mensagem e me envie.
 
+## Loja online e segurança (migração 10)
+
+A loja pública fica em `/loja` (arquivo `loja.html`). O gerente escolhe o que aparece na aba **Loja online > Catálogo** (preço "Sob consulta" por padrão); clientes se cadastram (PF/PJ, CPF/CNPJ validado, CEP preenche o endereço) e enviam **solicitações**, que chegam em **Loja online > Solicitações** para aprovar (vira pedido) ou recusar.
+
+Passo a passo para colocar no ar:
+1. Supabase > SQL Editor: rodar `supabase/migracao-10-loja-clientes.sql` (ou, em banco novo, só o `schema.sql`). **Atenção:** toda conta nova passa a nascer como "cliente" (sem acesso ao estoque) e as funções internas deixam de ser chamáveis por usuários logados.
+2. Supabase > Authentication > Sign In / Providers: **Allow new users to sign up = ligado**, **Confirm email = ligado**; confira que MFA (TOTP) está habilitado.
+3. Authentication > URL Configuration: adicionar `https://mb-metais.vercel.app/loja` em Redirect URLs.
+4. `js/config.js`: precisa da chave pública (publishable) do Supabase (ela é pública por desenho; nunca coloque a chave secreta).
+5. `js/company.js`: preencher e-mail, telefone e encarregado de dados. Se mudar os Termos/Política, mude `termsVersion` aqui e `terms_version()` no banco.
+6. Opcional: captcha Cloudflare Turnstile (`turnstileSiteKey` no config.js + chave secreta no Supabase > Authentication > Attack Protection).
+7. Equipe: cada gerente/funcionário deve ativar a verificação em 2 etapas pelo botão **Segurança** no menu.
+8. Revisar com advogado(a) `privacidade.html`, `termos.html`, `cookies.html`. Veja `docs/seguranca-lgpd.md` (incidentes, retenção, checklist).
+
+Arquivos novos: `loja.html`, `css/loja.css`, `js/loja.js`, `js/views-loja.js`, `js/views-security.js`, `js/validators.js`, `js/company.js`, `js/legal.js`, `js/boot-*.js`, `vercel.json` (cabeçalhos de segurança e CSP), `docs/`.
+
 ## Rodar no computador
 Abra a pasta no VS Code e use **Live Server** em `index.html` (ou dê duplo clique).
 

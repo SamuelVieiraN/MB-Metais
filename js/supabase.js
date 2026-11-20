@@ -143,7 +143,61 @@
     const p = await fetchProfile(session.user.id);
     if (!p) return { ok: false, error: 'Seu usuário ainda não tem perfil no sistema. Fale com o gerente.' };
     if (!p.active) return { ok: false, error: 'Seu acesso está desativado. Fale com o gerente.' };
+    if (p.role === 'cliente') {
+      return { ok: false, error: 'Esta conta ainda não tem acesso ao sistema da empresa. Se você é cliente, entre pela loja online (/loja). Se é da equipe, peça ao gerente para liberar o seu acesso.' };
+    }
     return { ok: true, user: { id: p.id, email: session.user.email, name: p.name || session.user.email, role: p.role } };
+  }
+
+  // ---------------- verificação em 2 etapas (TOTP) ----------------
+  function decodeAal(token) {
+    try {
+      const b64 = String(token).split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      return JSON.parse(atob(b64)).aal || 'aal1';
+    } catch (e) {
+      return 'aal1';
+    }
+  }
+
+  function mfaFriendly(status, body) {
+    const msg = String((body && (body.message || body.msg || body.error_description || body.error)) || '');
+    if (/invalid totp|invalid.*code|mfa.*verification.*failed/i.test(msg)) return 'Código incorreto ou vencido. Confira o app autenticador e tente de novo.';
+    if (status === 401 || status === 403) return 'Sua sessão expirou. Entre de novo.';
+    if (status === 429) return 'Muitas tentativas. Aguarde um minuto e tente de novo.';
+    return msg || `Erro inesperado do servidor (${status}).`;
+  }
+
+  async function authApi(path, opts) {
+    opts = opts || {};
+    let res;
+    try {
+      res = await fetch(base + path, {
+        method: opts.method || 'GET',
+        headers: { apikey: anon, 'Content-Type': 'application/json', Authorization: `Bearer ${opts.token}` },
+        body: opts.body ? JSON.stringify(opts.body) : undefined,
+      });
+    } catch (e) {
+      throw new Error('Sem conexão com o servidor. Confira a internet e tente de novo.');
+    }
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(mfaFriendly(res.status, json));
+    return json;
+  }
+
+  async function verifiedFactors(token) {
+    const u = await authApi('/auth/v1/user', { token });
+    return (u.factors || []).filter((f) => f.status === 'verified' && f.factor_type === 'totp');
+  }
+
+  let pendingMfa = null; // senha certa, falta o código: a sessão ainda não é guardada
+
+  async function mfaChallengeVerify(token, factorId, code) {
+    const ch = await authApi(`/auth/v1/factors/${factorId}/challenge`, { method: 'POST', token });
+    return authApi(`/auth/v1/factors/${factorId}/verify`, {
+      method: 'POST',
+      token,
+      body: { challenge_id: ch.id, code: String(code || '').replace(/\D/g, '') },
+    });
   }
 
   const SupabaseAuth = {
@@ -155,6 +209,11 @@
       loadSession();
       if (!session) return null;
       try {
+        await refreshIfNeeded();
+        if (decodeAal(session.access_token) !== 'aal2' && (await verifiedFactors(session.access_token)).length) {
+          saveSession(null); // tem 2 etapas ativa e esta sessão não passou por ela
+          return null;
+        }
         const r = await userFromSession();
         if (!r.ok) {
           saveSession(null);
@@ -185,7 +244,17 @@
         const bad = res.status === 400 || res.status === 422;
         return { ok: false, error: bad ? 'E-mail ou senha incorretos.' : friendly(res.status, json) };
       }
-      saveSession(toSession(json));
+      const first = toSession(json);
+      try {
+        const factors = await verifiedFactors(first.access_token);
+        if (factors.length && decodeAal(first.access_token) !== 'aal2') {
+          pendingMfa = { session: first, factorId: factors[0].id };
+          return { ok: false, mfa: true };
+        }
+      } catch (err) {
+        return { ok: false, error: err.message };
+      }
+      saveSession(first);
       try {
         const r = await userFromSession();
         if (!r.ok) {
@@ -197,6 +266,45 @@
         saveSession(null);
         return { ok: false, error: err.message };
       }
+    },
+    async verifyMfa(code) {
+      if (!pendingMfa) return { ok: false, error: 'Entre de novo com e-mail e senha.' };
+      try {
+        const r = await mfaChallengeVerify(pendingMfa.session.access_token, pendingMfa.factorId, code);
+        pendingMfa = null;
+        saveSession(toSession(r));
+        const u = await userFromSession();
+        if (!u.ok) saveSession(null);
+        return u;
+      } catch (err) {
+        return { ok: false, error: err.message };
+      }
+    },
+    cancelMfa() {
+      pendingMfa = null;
+    },
+    mfa: {
+      async list() {
+        await refreshIfNeeded();
+        return verifiedFactors(session.access_token);
+      },
+      async enroll() {
+        await refreshIfNeeded();
+        const r = await authApi('/auth/v1/factors', {
+          method: 'POST',
+          token: session.access_token,
+          body: { factor_type: 'totp', issuer: 'M&B Metais', friendly_name: 'Celular ' + new Date().toISOString().slice(0, 16) },
+        });
+        return { id: r.id, qr: r.totp && r.totp.qr_code, secret: r.totp && r.totp.secret };
+      },
+      async confirm(factorId, code) {
+        const r = await mfaChallengeVerify(session.access_token, factorId, code);
+        saveSession(toSession(r)); // a sessão passa a valer como "2 etapas"
+      },
+      async disable(factorId) {
+        await refreshIfNeeded();
+        await authApi(`/auth/v1/factors/${encodeURIComponent(factorId)}`, { method: 'DELETE', token: session.access_token });
+      },
     },
     async signOut() {
       const token = session && session.access_token;
@@ -471,6 +579,37 @@
       },
       async setUser(id, role, active, name) {
         await rpc('set_user', { p_id: id, p_role: role, p_active: active, p_name: name || null });
+      },
+
+      // ----- loja online (só gerente) -----
+      async listCatalog() {
+        return (await rpc('list_catalog')) || [];
+      },
+      async saveCatalog(items) {
+        await rpc('save_catalog', { p_items: items });
+      },
+      async listRequests() {
+        return (await rpc('list_requests', { p_limit: 200 })) || [];
+      },
+      async approveRequest(id, due) {
+        const body = { p_id: id };
+        if (due) body.p_due = due;
+        return rpc('approve_request', body);
+      },
+      async rejectRequest(id, reason) {
+        await rpc('reject_request', { p_id: id, p_reason: reason || '' });
+      },
+      async listCustomers() {
+        return (await rpc('list_customers')) || [];
+      },
+      async setCustomerActive(id, active) {
+        await rpc('set_customer_active', { p_id: id, p_active: !!active });
+      },
+      async listAudit() {
+        return (await rpc('list_audit', { p_limit: 200 })) || [];
+      },
+      async purgeAudit(months) {
+        return Number(await rpc('purge_audit', { p_months: months || 12 })) || 0;
       },
     };
   }

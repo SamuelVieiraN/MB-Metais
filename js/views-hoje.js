@@ -54,6 +54,7 @@
     const ready = (s.orders || []).filter((o) => o.status === 'aberto' && L.orderProgress(o, alloc[o.id], s.products, s.parts).complete).length;
     const low = L.lowStock(s.parts).length;
     const items = [];
+    if (App.newRequests) items.push(['solicitacoes', `${int(App.newRequests)} solicitação(ões) de cliente da loja`, 'Aprove para virar pedido ou recuse com um motivo.', 'Ver solicitações']);
     if (receipts) items.push(['recebimento', `${int(receipts)} recebimento(s) esperando autorização`, 'As peças só entram no estoque depois que você autoriza.', 'Revisar']);
     if (ready) items.push(['pedidos', `${int(ready)} pedido(s) pronto(s) para finalizar`, 'Já há produtos montados suficientes; falta dar baixa.', 'Ver pedidos']);
     if (counts) items.push(['conferencia', `${int(counts)} contagem(ns) para aprovar`, 'O estoque só é corrigido depois da sua aprovação.', 'Revisar']);
@@ -83,6 +84,7 @@
   }
 
   function view() {
+    if (App.isManager() && App.isRemote() && App.refreshRequests && App.newRequests === undefined) App.refreshRequests();
     const mgr = App.isManager();
     const first = String((App.user && App.user.name) || '').split(' ')[0];
     const date = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });

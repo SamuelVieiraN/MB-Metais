@@ -106,6 +106,10 @@
     btn.classList.add('busy');
     try {
       const r = await App.auth.signIn(form.email.value, form.password.value);
+      if (r.mfa) {
+        showMfaStep();
+        return;
+      }
       if (!r.ok) {
         err.textContent = r.error;
         err.hidden = false;
@@ -114,6 +118,44 @@
       await enter(r.user);
     } catch (e) {
       err.textContent = e.message || 'Não foi possível entrar.';
+      err.hidden = false;
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove('busy');
+    }
+  }
+
+  // segunda etapa do login: código do app autenticador
+  function showMfaStep() {
+    $('#login-form').outerHTML = `
+      <form id="mfa-form" novalidate>
+        <p class="muted">Verificação em 2 etapas: abra o app autenticador no celular e digite o código de 6 números.</p>
+        <label>Código
+          <span class="field">${icons.lock}<input name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" required /></span>
+        </label>
+        <p class="form-error" id="login-error" role="alert" hidden></p>
+        <button class="btn primary big" type="submit">Confirmar</button>
+        <button class="btn ghost" type="button" data-action="mfa-cancel">Voltar</button>
+      </form>`;
+    $('#mfa-form input[name=code]').focus();
+  }
+
+  async function doMfa(form) {
+    const btn = $('button[type=submit]', form);
+    const err = $('#login-error');
+    err.hidden = true;
+    btn.disabled = true;
+    btn.classList.add('busy');
+    try {
+      const r = await App.auth.verifyMfa(form.code.value);
+      if (!r.ok) {
+        err.textContent = r.error;
+        err.hidden = false;
+        return;
+      }
+      await enter(r.user);
+    } catch (e) {
+      err.textContent = e.message || 'Não foi possível confirmar o código.';
       err.hidden = false;
     } finally {
       btn.disabled = false;
@@ -170,6 +212,7 @@
         <span class="avatar">${esc(initials)}</span>
         <span class="who sb-label"><b>${esc(u.name)}</b><small>${roleLabel(u.role)}</small></span>
       </div>
+      ${App.auth.isDemo ? '' : `<button class="side-link" data-action="security" title="Segurança da conta">${icons.key}<span class="sb-label">Segurança</span></button>`}
       <button class="side-link" data-action="logout" title="Sair">${icons.logout}<span class="sb-label">Sair</span></button>`;
     renderTopRight();
   }
@@ -227,8 +270,9 @@
     { id: 'estoque', label: 'Estoque', icon: 'box', tabs: ['pecas', 'recebimento', 'reposicao', 'conferencia'] },
     { id: 'producao', label: 'Produção', icon: 'tool', tabs: ['produtos', 'montados', 'simulacao'] },
     { id: 'pedidos', label: 'Pedidos', icon: 'clipboard', tabs: ['pedidos'] },
+    { id: 'loja', label: 'Loja online', icon: 'cart', tabs: ['catalogo', 'solicitacoes', 'clientes'] },
     { id: 'movimentacoes', label: 'Movimentações', icon: 'swap', tabs: ['movimentacoes'] },
-    { id: 'gerencia', label: 'Gerência', icon: 'shield', tabs: ['financeiro', 'planilhas', 'usuarios'], lock: true },
+    { id: 'gerencia', label: 'Gerência', icon: 'shield', tabs: ['financeiro', 'planilhas', 'usuarios', 'auditoria'], lock: true },
   ];
   App.groups = () => {
     const vis = visibleTabs();
@@ -1163,6 +1207,10 @@
     'close-modal': () => closeModal(),
     'close-lightbox': () => $('#lightbox').close(),
     logout: () => logout(),
+    'mfa-cancel': () => {
+      if (App.auth.cancelMfa) App.auth.cancelMfa();
+      showLogin();
+    },
     'theme-toggle': () => applyTheme(!isDark(), true),
     'sb-toggle': () => (isMobile() ? setDrawer(false) : setSidebarMin(!document.documentElement.classList.contains('sb-min'))),
     'sb-open': () => setDrawer(true),
@@ -1357,6 +1405,9 @@
       if (e.target.id === 'login-form') {
         e.preventDefault();
         doLogin(e.target);
+      } else if (e.target.id === 'mfa-form') {
+        e.preventDefault();
+        doMfa(e.target);
       }
     });
 

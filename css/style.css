@@ -712,3 +712,25 @@ tr.alert-row td { background: rgba(220, 120, 0, 0.09); }
     radial-gradient(500px 500px at 100% 100%, rgba(0, 0, 0, 0.5), transparent 70%),
     linear-gradient(140deg, #082f38, #0b5566 65%, #0f7184);
 }
+
+/* ---------- loja online (telas da gerência) ---------- */
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 14px; }
+.toolbar .chips { margin-top: 0; }
+.cat-table td { vertical-align: middle; }
+.cat-table input[type="number"] { width: 130px; }
+.cat-table input[data-cf="blurb"] { min-width: 220px; width: 100%; }
+.cat-table tr.dirty td { background: var(--warn-soft); }
+.req-list { display: grid; gap: 14px; }
+.req { display: grid; gap: 6px; border-left: 5px solid var(--line-strong); }
+.req.nova { border-left-color: var(--warn); }
+.req.aprovada { border-left-color: var(--ok); }
+.req.recusada { border-left-color: var(--bad); }
+.req header { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.req p { margin: 0; }
+.req-cust { font-size: 1.02rem; }
+.req-items { margin: 4px 0; padding-left: 20px; }
+.req-note { font-style: italic; color: var(--muted); }
+.req-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+.qr-box { display: grid; place-items: center; margin: 12px 0; }
+.qr-box img { background: #fff; padding: 8px; border-radius: 12px; border: 1px solid var(--line); }
+code { background: var(--soft); padding: 2px 6px; border-radius: 6px; font-size: 0.9em; word-break: break-all; }
